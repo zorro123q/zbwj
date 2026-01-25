@@ -12,6 +12,7 @@ from app.services.prompt_registry import PromptRegistry
 from app.worker.components.excel_exporter import ExcelExporter
 from app.worker.components.parser import Parser
 from app.worker.components.extractor import Extractor
+from domain.templates.registry import TemplateRegistry
 
 STAGE_PROGRESS = [
     ("VALIDATE", 5),
@@ -100,6 +101,11 @@ class InProcessRunner:
         # 补充一点元信息（可选）
         data["job_id"] = job_id
         data["script"] = {"script_id": script.get("script_id"), "version": script.get("version")}
+        if script.get("template_id") and script.get("template_version"):
+            data["template"] = {
+                "template_id": script.get("template_id"),
+                "version": script.get("template_version"),
+            }
         return data
 
     def _validate_result_json(self, data: Dict[str, Any]) -> None:
@@ -150,6 +156,10 @@ class InProcessRunner:
                     raise RuntimeError("file not found")
 
                 script = self._load_script(job.script_id)
+                template_id = script.get("template_id")
+                template_version = script.get("template_version")
+                if template_id and template_version:
+                    TemplateRegistry.get(template_id, template_version)
 
                 ext = (f.ext or "").lower().strip()
                 if ext not in ("txt", "docx"):
