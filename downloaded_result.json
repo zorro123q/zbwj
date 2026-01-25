@@ -1,0 +1,42 @@
+{
+  "job_id": "5c438ef5-c6c2-4a82-8b26-b7a2f4ac0cb4",
+  "script": {
+    "script_id": "demo_v1",
+    "version": "v1"
+  },
+  "tables": [
+    {
+      "sheet_name": "Result",
+      "columns": [
+        "field",
+        "value"
+      ],
+      "rows": [
+        [
+          "job_id",
+          "5c438ef5-c6c2-4a82-8b26-b7a2f4ac0cb4"
+        ],
+        [
+          "script_id",
+          "demo_v1"
+        ],
+        [
+          "version",
+          "v1"
+        ],
+        [
+          "char_count",
+          36
+        ],
+        [
+          "line_count",
+          1
+        ],
+        [
+          "preview_top10_lines",
+          "\"招标编号: ZB-001`n项目名称: 测试项目`n预算: 100万\""
+        ]
+      ]
+    }
+  ]
+}
