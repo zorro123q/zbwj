@@ -125,6 +125,9 @@ def export_by_template(
         if isinstance(top_k, int) and top_k > 0:
             sorted_items = sorted_items[:top_k]
 
+        if not sorted_items:
+            raise WordExportError(f"no blocks found for section: {title or 'untitled'}")
+
         for block in sorted_items:
             rel_path = (block.get("content_docx_path") or "").replace("\\", "/").lstrip("/")
             block_path = (repo_root / Path(rel_path)).resolve()

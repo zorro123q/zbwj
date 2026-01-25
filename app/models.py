@@ -32,6 +32,7 @@ class Job(db.Model):
 
     artifact_json_path = db.Column(db.String(512), nullable=True)
     artifact_xlsx_path = db.Column(db.String(512), nullable=True)
+    artifact_docx_path = db.Column(db.String(512), nullable=True)
 
     error_message = db.Column(db.String(2000), nullable=True)
 

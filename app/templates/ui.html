@@ -151,6 +151,35 @@
     <pre id="searchLog"></pre>
   </div>
 
+  <!-- ============ 知识库入库 ============ -->
+  <div class="card">
+    <h1>知识库入库</h1>
+    <div class="muted">输入已上传的 file_id，写入知识库并切分 blocks。</div>
+
+    <div class="hr"></div>
+
+    <div class="row">
+      <div>
+        <label>file_id</label><br />
+        <input id="kbFileId" type="text" placeholder="从上传后获取 file_id" />
+      </div>
+      <div>
+        <label>标题（可选）</label><br />
+        <input id="kbTitle" type="text" placeholder="例如：投标文件" />
+      </div>
+      <div>
+        <button id="btnKbIngest">知识库入库</button>
+      </div>
+      <div class="kv">
+        doc_id：<code id="kbDocId">-</code>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+    <div class="muted">入库日志</div>
+    <pre id="kbLog"></pre>
+  </div>
+
   <!-- ============ 任务闭环（你已有） ============ -->
   <div class="card">
     <h1>test</h1>
@@ -215,8 +244,25 @@
     <div class="row" style="margin-top:12px;">
       <a id="btnDownloadXlsx" class="btnlink primary" href="#" style="display:none;">下载 result.xlsx</a>
       <a id="btnDownloadJson" class="btnlink secondary" href="#" style="display:none;">下载 result.json</a>
+      <a id="btnDownloadDocx" class="btnlink secondary" href="#" style="display:none;">下载 result.docx</a>
       <button id="btnReset" class="secondary">重置</button>
     </div>
+
+    <div class="hr"></div>
+
+    <div class="muted">任务列表</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="nowrap">job_id</th>
+          <th class="nowrap">status</th>
+          <th class="nowrap">artifact</th>
+        </tr>
+      </thead>
+      <tbody id="jobListTbody">
+        <tr><td colspan="3" class="muted">暂无任务</td></tr>
+      </tbody>
+    </table>
 
     <div class="hr"></div>
 
@@ -407,11 +453,42 @@
 
   const btnDownloadXlsx = el("btnDownloadXlsx");
   const btnDownloadJson = el("btnDownloadJson");
+  const btnDownloadDocx = el("btnDownloadDocx");
   const btnReset = el("btnReset");
 
   const logEl = el("log");
+  const jobListTbody = el("jobListTbody");
 
   let state = { file_id: null, job_id: null, poll_timer: null };
+  let jobList = [];
+
+  function renderJobList() {
+    if (!jobList.length) {
+      jobListTbody.innerHTML = `<tr><td colspan="3" class="muted">暂无任务</td></tr>`;
+      return;
+    }
+    jobListTbody.innerHTML = jobList.map(job => {
+      const status = job.status || "-";
+      const docxLink = job.docx_ready ? `<a href="/api/v1/jobs/${job.job_id}/artifact?type=docx">下载 docx</a>` : "-";
+      return `
+        <tr>
+          <td class="nowrap">${job.job_id}</td>
+          <td class="nowrap">${status}</td>
+          <td>${docxLink}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function upsertJob(job_id, status, docx_ready) {
+    const idx = jobList.findIndex(j => j.job_id === job_id);
+    if (idx >= 0) {
+      jobList[idx] = { ...jobList[idx], status, docx_ready };
+    } else {
+      jobList.push({ job_id, status, docx_ready });
+    }
+    renderJobList();
+  }
 
   function log(msg) {
     const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -522,6 +599,7 @@
       setProgress(0);
 
       log(`任务创建成功：job_id=${state.job_id}`);
+      upsertJob(state.job_id, "PENDING", false);
       startPolling();
     } catch (e) {
       log(`创建任务失败：${e.message || e}`);
@@ -551,6 +629,7 @@
         setPill(pillStatus, `status: ${status}`, status === "SUCCEEDED" ? "ok" : (status === "FAILED" ? "bad" : null));
         setPill(pillStage, `stage: ${stage}`, null);
         setProgress(progress);
+        upsertJob(state.job_id, status, status === "SUCCEEDED");
 
         if (status === "FAILED") {
           stopPolling();
@@ -566,8 +645,10 @@
 
           btnDownloadXlsx.href = `/api/v1/jobs/${state.job_id}/artifact?type=xlsx`;
           btnDownloadJson.href = `/api/v1/jobs/${state.job_id}/artifact?type=json`;
+          btnDownloadDocx.href = `/api/v1/jobs/${state.job_id}/artifact?type=docx`;
           btnDownloadXlsx.style.display = "inline-block";
           btnDownloadJson.style.display = "inline-block";
+          btnDownloadDocx.style.display = "inline-block";
 
           refreshCreateButton();
         }
@@ -594,6 +675,7 @@
 
     btnDownloadXlsx.style.display = "none";
     btnDownloadJson.style.display = "none";
+    btnDownloadDocx.style.display = "none";
 
     logEl.textContent = "";
     loadScripts();
@@ -610,6 +692,104 @@
   // init
   loadScripts();
   refreshCreateButton();
+
+  // ======== KB Ingest UI ========
+  const kbFileId = el("kbFileId");
+  const kbTitle = el("kbTitle");
+  const kbDocId = el("kbDocId");
+  const kbLog = el("kbLog");
+  const btnKbIngest = el("btnKbIngest");
+
+  function kbLogLine(msg) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    kbLog.textContent = (kbLog.textContent ? (kbLog.textContent + "\n") : "") + line;
+    kbLog.scrollTop = kbLog.scrollHeight;
+  }
+
+  btnKbIngest.addEventListener("click", async () => {
+    const fid = (kbFileId.value || "").trim() || (state.file_id || "");
+    if (!fid) { alert("请先填写 file_id"); return; }
+
+    btnKbIngest.disabled = true;
+    try {
+      kbLogLine(`开始入库：file_id=${fid}`);
+      const resp = await fetch("/api/v1/kb/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_id: fid, title: (kbTitle.value || "").trim() || null }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+
+      kbDocId.textContent = data.doc_id || "-";
+      kbLogLine(`入库成功：doc_id=${data.doc_id}, blocks=${data.block_count}`);
+    } catch (e) {
+      kbLogLine(`入库失败：${e.message || e}`);
+      alert(`入库失败：${e.message || e}`);
+    } finally {
+      btnKbIngest.disabled = false;
+    }
+  });
+
+  // ======== Export Word via Template ========
+  const exportTemplateVersion = document.createElement("input");
+  exportTemplateVersion.id = "exportTemplateVersion";
+  exportTemplateVersion.type = "text";
+  exportTemplateVersion.value = "v1";
+  exportTemplateVersion.placeholder = "template version";
+
+  const exportButton = document.createElement("button");
+  exportButton.id = "btnExportTemplateDocx";
+  exportButton.textContent = "按模板导出Word";
+
+  const exportWrap = document.createElement("div");
+  exportWrap.className = "row";
+  exportWrap.style.marginTop = "12px";
+  exportWrap.innerHTML = `
+    <div>
+      <label>模板版本</label><br />
+    </div>
+    <div></div>
+  `;
+  exportWrap.children[0].appendChild(exportTemplateVersion);
+  exportWrap.children[1].appendChild(exportButton);
+
+  document.querySelectorAll(".card")[1].appendChild(exportWrap);
+
+  exportButton.addEventListener("click", async () => {
+    const fid = (kbFileId.value || "").trim() || (state.file_id || "");
+    if (!fid) { alert("请先填写 file_id"); return; }
+
+    const version = (exportTemplateVersion.value || "").trim();
+    if (!version) { alert("请输入模板版本"); return; }
+
+    exportButton.disabled = true;
+    try {
+      const payload = {
+        file_id: fid,
+        script_id: "EXPORT_TEMPLATE_DOCX",
+        model_id: version,
+      };
+      const resp = await fetch("/api/v1/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+
+      state.job_id = data.job_id;
+      jobIdEl.textContent = state.job_id;
+      log(`模板导出任务创建成功：job_id=${state.job_id}`);
+      upsertJob(state.job_id, "PENDING", false);
+      startPolling();
+    } catch (e) {
+      log(`模板导出失败：${e.message || e}`);
+      alert(`模板导出失败：${e.message || e}`);
+    } finally {
+      exportButton.disabled = false;
+    }
+  });
 })();
 </script>
 </body>

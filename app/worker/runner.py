@@ -13,6 +13,7 @@ from app.worker.components.excel_exporter import ExcelExporter
 from app.worker.components.parser import Parser
 from app.worker.components.extractor import Extractor
 from domain.templates.registry import TemplateRegistry
+from domain.exports.word import export_by_template, WordExportError
 
 STAGE_PROGRESS = [
     ("VALIDATE", 5),
@@ -154,6 +155,29 @@ class InProcessRunner:
                 f = db.session.get(File, job.file_id)
                 if f is None:
                     raise RuntimeError("file not found")
+
+                if job.script_id == "EXPORT_TEMPLATE_DOCX":
+                    advance("EXPORT_DOCX", 40, status="RUNNING")
+                    template_version = (job.model_id or "").strip()
+                    try:
+                        result = export_by_template(
+                            job_id=job_id,
+                            template_id="tender_reuse",
+                            version=template_version,
+                            company_id=None,
+                        )
+                    except WordExportError as exc:
+                        raise RuntimeError(str(exc)) from exc
+
+                    self._set_job(
+                        job_id,
+                        status="SUCCEEDED",
+                        stage="DONE",
+                        progress=100,
+                        artifact_docx_path=result.get("docx_path"),
+                        error_message=None,
+                    )
+                    return
 
                 script = self._load_script(job.script_id)
                 template_id = script.get("template_id")
