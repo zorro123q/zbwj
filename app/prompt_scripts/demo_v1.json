@@ -1,0 +1,23 @@
+{
+  "script_id": "demo_v1",
+  "version": "v1",
+  "name": "招标文件",
+  "description": "MVP：从 docx/txt 抽取基本信息 + 废标/评审/评分/注意事项关键词条款，导出为单 Sheet Excel。",
+  "input_vars": {
+    "language": "zh-CN",
+    "mode": "rule_extract_single_sheet"
+  },
+  "output_schema": {
+    "tables": [
+      {
+        "sheet_name": "Result",
+        "columns": ["category", "item", "value", "source"]
+      }
+    ]
+  },
+  "excel_layout": {
+    "workbook_name": "result.xlsx",
+    "default_sheet": "Result",
+    "freeze_header": true
+  }
+}

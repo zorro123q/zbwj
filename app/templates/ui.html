@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>flask-gpt-stack MVP</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+    .card { max-width: 980px; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 1px 8px rgba(0,0,0,.04); margin-bottom: 16px; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    h2 { font-size: 15px; margin: 0 0 10px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .row > * { margin: 6px 0; }
+    label { font-size: 13px; color: #374151; }
+    input[type="text"], input[type="number"], input[type="date"], select {
+      padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; min-width: 220px;
+    }
+    input[type="file"] { padding: 6px; }
+    button { padding: 9px 12px; border: 1px solid #111827; background: #111827; color: white; border-radius: 10px; cursor: pointer; }
+    button.secondary { background: white; color: #111827; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .hr { height: 1px; background: #e5e7eb; margin: 14px 0; }
+    .kv { font-size: 13px; color: #111827; }
+    .kv code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+    .progress-wrap { width: 100%; max-width: 720px; height: 14px; border-radius: 999px; background: #f3f4f6; overflow: hidden; border: 1px solid #e5e7eb; }
+    .progress-bar { height: 100%; width: 0%; background: #111827; transition: width .2s ease; }
+    .statusline { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #e5e7eb; background: #fafafa; }
+    .pill.ok { border-color: #86efac; background: #f0fdf4; }
+    .pill.bad { border-color: #fca5a5; background: #fef2f2; }
+    a.btnlink { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 1px solid #111827; text-decoration: none; }
+    a.btnlink.primary { background: #111827; color: white; }
+    a.btnlink.secondary { background: white; color: #111827; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 12px; font-size: 12px; max-height: 240px; overflow: auto; }
+
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 13px; vertical-align: top; }
+    th { background: #f9fafb; text-align: left; }
+    .nowrap { white-space: nowrap; }
+    .small { font-size: 12px; color: #6b7280; }
+    .right { text-align: right; }
+  </style>
+</head>
+<body>
+
+  <!-- ============ 索引搜索（T6） ============ -->
+  <div class="card">
+    <h1>证书索引</h1>
+    <div class="muted">
+
+      <br/>提示：如果数据库里还没导入对应数据，搜索会返回空。
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="row">
+      <div>
+        <label>关键词 q（模糊查询）</label><br/>
+        <input id="searchQ" type="text" placeholder="例如：专利 / 营业执照 / 身份证正面" />
+      </div>
+
+      <div>
+        <label>scope</label><br/>
+        <select id="searchScope">
+          <option value="">ALL</option>
+          <option value="PERSON">PERSON</option>
+          <option value="COMPANY">COMPANY</option>
+        </select>
+      </div>
+
+      <div>
+        <label>doc_type_code（可选）</label><br/>
+        <input id="searchDocTypeCode" type="text" placeholder="例如：patent / business_license" />
+      </div>
+
+      <div>
+        <label>owner_id（可选）</label><br/>
+        <input id="searchOwnerId" type="text" placeholder="限定某人/公司" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>valid_on（可选）</label><br/>
+        <input id="searchValidOn" type="date" />
+      </div>
+
+      <div>
+        <label>sort</label><br/>
+        <select id="searchSort">
+          <option value="relevance_desc">relevance_desc</option>
+          <option value="created_at_desc">created_at_desc</option>
+          <option value="expires_at_asc">expires_at_asc</option>
+        </select>
+      </div>
+
+      <div>
+        <label>page_size</label><br/>
+        <select id="searchPageSize">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+
+      <div>
+        <button id="btnSearch">搜索</button>
+        <button id="btnSearchReset" class="secondary">清空</button>
+      </div>
+
+      <div class="kv">
+        total：<code id="searchTotal">0</code>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content: space-between;">
+      <div class="small" id="searchReqUrl"></div>
+      <div class="row">
+        <button id="btnPrev" class="secondary">上一页</button>
+        <span class="kv">page：<code id="searchPage">1</code></span>
+        <button id="btnNext" class="secondary">下一页</button>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div style="overflow:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th class="nowrap">scope</th>
+            <th class="nowrap">owner_name</th>
+            <th class="nowrap">doc_type</th>
+            <th>cert_no / issuer / tags</th>
+            <th class="nowrap">issued_at</th>
+            <th class="nowrap">expires_at</th>
+            <th class="nowrap">status</th>
+            <th>file</th>
+          </tr>
+        </thead>
+        <tbody id="searchTbody">
+          <tr><td colspan="8" class="muted">请先搜索</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hr"></div>
+    <div class="muted">搜索日志</div>
+    <pre id="searchLog"></pre>
+  </div>
+
+  <!-- ============ 任务闭环（你已有） ============ -->
+  <div class="card">
+    <h1>test</h1>
+    <div class="muted">上传 → 选择脚本 → 创建任务 → 进度轮询 → 下载 XLSX</div>
+
+    <div class="hr"></div>
+
+    <!-- Upload -->
+    <div class="row">
+      <div>
+        <label>选择文件（仅 txt / docx，≤20MB）</label><br />
+        <input id="fileInput" type="file" accept=".txt,.docx" />
+      </div>
+      <div>
+        <button id="btnUpload">上传文件</button>
+      </div>
+      <div class="kv">
+        file_id：<code id="fileId">-</code>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- Script + Model -->
+    <div class="row">
+      <div>
+        <label>脚本选择</label><br />
+        <select id="scriptSelect">
+          <option value="">加载中...</option>
+        </select>
+      </div>
+
+      <div>
+        <label>模型 ID（MVP 任意字符串）</label><br />
+        <input id="modelInput" type="text" value="mock" />
+      </div>
+
+      <div>
+        <button id="btnCreateJob" disabled>创建任务</button>
+      </div>
+
+      <div class="kv">
+        job_id：<code id="jobId">-</code>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- Progress -->
+    <div class="statusline">
+      <span class="pill" id="pillStatus">status: -</span>
+      <span class="pill" id="pillStage">stage: -</span>
+      <span class="pill" id="pillProgress">progress: 0%</span>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="progress-wrap">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <a id="btnDownloadXlsx" class="btnlink primary" href="#" style="display:none;">下载 result.xlsx</a>
+      <a id="btnDownloadJson" class="btnlink secondary" href="#" style="display:none;">下载 result.json</a>
+      <button id="btnReset" class="secondary">重置</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="muted">任务日志</div>
+    <pre id="log"></pre>
+  </div>
+
+<script>
+(function () {
+  const el = (id) => document.getElementById(id);
+
+  // ======== Index Search UI ========
+  const searchQ = el("searchQ");
+  const searchScope = el("searchScope");
+  const searchDocTypeCode = el("searchDocTypeCode");
+  const searchOwnerId = el("searchOwnerId");
+  const searchValidOn = el("searchValidOn");
+  const searchSort = el("searchSort");
+  const searchPageSize = el("searchPageSize");
+
+  const btnSearch = el("btnSearch");
+  const btnSearchReset = el("btnSearchReset");
+  const btnPrev = el("btnPrev");
+  const btnNext = el("btnNext");
+
+  const searchTotal = el("searchTotal");
+  const searchPage = el("searchPage");
+  const searchReqUrl = el("searchReqUrl");
+  const searchTbody = el("searchTbody");
+  const searchLog = el("searchLog");
+
+  let searchState = { page: 1, total: 0, lastQuery: "" };
+
+  function slog(msg) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    searchLog.textContent = (searchLog.textContent ? (searchLog.textContent + "\n") : "") + line;
+    searchLog.scrollTop = searchLog.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function buildSearchUrl(page) {
+    const params = new URLSearchParams();
+    const qv = (searchQ.value || "").trim();
+    if (qv) params.set("q", qv);
+    const scopev = (searchScope.value || "").trim();
+    if (scopev) params.set("scope", scopev);
+
+    const owner = (searchOwnerId.value || "").trim();
+    if (owner) params.set("owner_id", owner);
+
+    const docCode = (searchDocTypeCode.value || "").trim();
+    if (docCode) params.set("doc_type_code", docCode);
+
+    const vo = (searchValidOn.value || "").trim();
+    if (vo) params.set("valid_on", vo);
+
+    const sortv = (searchSort.value || "relevance_desc").trim();
+    if (sortv) params.set("sort", sortv);
+
+    const ps = parseInt(searchPageSize.value || "20", 10);
+    params.set("page_size", String(ps));
+    params.set("page", String(page));
+
+    return "/api/v1/index/search?" + params.toString();
+  }
+
+  function renderItems(items) {
+    if (!items || items.length === 0) {
+      searchTbody.innerHTML = `<tr><td colspan="8" class="muted">无结果</td></tr>`;
+      return;
+    }
+
+    const rows = items.map(it => {
+      const file = it.file || {};
+      const tags = it.tags || ""; // 后端没返回 tags 字段，这里不依赖
+      const cert = it.cert_no || "";
+      const issuer = it.issuer || "";
+
+      const fileInfo = `
+        <div><b>${escapeHtml(file.original_name || "")}</b></div>
+        <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
+        <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
+      `;
+
+      return `
+        <tr>
+          <td class="nowrap">${escapeHtml(it.scope)}</td>
+          <td class="nowrap">${escapeHtml(it.owner_name || "")}</td>
+          <td>
+            <div><b>${escapeHtml(it.doc_type_name || "")}</b></div>
+            <div class="small">${escapeHtml(it.doc_type_code || "")}</div>
+          </td>
+          <td>
+            <div><b>cert_no</b>: ${escapeHtml(cert)}</div>
+            <div><b>issuer</b>: ${escapeHtml(issuer)}</div>
+          </td>
+          <td class="nowrap">${escapeHtml(it.issued_at || "")}</td>
+          <td class="nowrap">${escapeHtml(it.expires_at || "")}</td>
+          <td class="nowrap">${escapeHtml(it.status || "")}</td>
+          <td>${fileInfo}</td>
+        </tr>
+      `;
+    }).join("");
+
+    searchTbody.innerHTML = rows;
+  }
+
+  async function doSearch(page) {
+    const url = buildSearchUrl(page);
+    searchReqUrl.textContent = "GET " + url;
+    searchState.lastQuery = url;
+
+    slog("search: " + url);
+
+    btnSearch.disabled = true;
+    try {
+      const resp = await fetch(url, { method: "GET" });
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        throw new Error(data.message || `HTTP ${resp.status}`);
+      }
+
+      searchState.page = data.page || page;
+      searchState.total = data.total || 0;
+
+      searchPage.textContent = String(searchState.page);
+      searchTotal.textContent = String(searchState.total);
+
+      renderItems(data.items || []);
+
+      // pagination button enable/disable
+      const ps = parseInt(searchPageSize.value || "20", 10);
+      btnPrev.disabled = (searchState.page <= 1);
+      btnNext.disabled = (searchState.page * ps >= searchState.total);
+
+    } catch (e) {
+      slog("error: " + (e.message || e));
+      searchTbody.innerHTML = `<tr><td colspan="8" class="muted">查询失败：${escapeHtml(e.message || e)}</td></tr>`;
+    } finally {
+      btnSearch.disabled = false;
+    }
+  }
+
+  btnSearch.addEventListener("click", () => doSearch(1));
+  btnPrev.addEventListener("click", () => doSearch(Math.max(1, (searchState.page || 1) - 1)));
+  btnNext.addEventListener("click", () => doSearch((searchState.page || 1) + 1));
+
+  btnSearchReset.addEventListener("click", () => {
+    searchQ.value = "";
+    searchScope.value = "";
+    searchDocTypeCode.value = "";
+    searchOwnerId.value = "";
+    searchValidOn.value = "";
+    searchSort.value = "relevance_desc";
+    searchPageSize.value = "20";
+    searchState.page = 1;
+    searchState.total = 0;
+    searchPage.textContent = "1";
+    searchTotal.textContent = "0";
+    searchReqUrl.textContent = "";
+    searchLog.textContent = "";
+    searchTbody.innerHTML = `<tr><td colspan="8" class="muted">请先搜索</td></tr>`;
+  });
+
+  // Enter to search
+  searchQ.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doSearch(1);
+  });
+
+  // ======== Job Flow UI (existing) ========
+  const fileInput = el("fileInput");
+  const btnUpload = el("btnUpload");
+  const fileIdEl = el("fileId");
+
+  const scriptSelect = el("scriptSelect");
+  const modelInput = el("modelInput");
+  const btnCreateJob = el("btnCreateJob");
+  const jobIdEl = el("jobId");
+
+  const pillStatus = el("pillStatus");
+  const pillStage = el("pillStage");
+  const pillProgress = el("pillProgress");
+  const progressBar = el("progressBar");
+
+  const btnDownloadXlsx = el("btnDownloadXlsx");
+  const btnDownloadJson = el("btnDownloadJson");
+  const btnReset = el("btnReset");
+
+  const logEl = el("log");
+
+  let state = { file_id: null, job_id: null, poll_timer: null };
+
+  function log(msg) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logEl.textContent = (logEl.textContent ? (logEl.textContent + "\n") : "") + line;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function setPill(pill, text, kind) {
+    pill.textContent = text;
+    pill.classList.remove("ok", "bad");
+    if (kind) pill.classList.add(kind);
+  }
+
+  function setProgress(pct) {
+    const p = Math.max(0, Math.min(100, parseInt(pct || 0, 10)));
+    progressBar.style.width = p + "%";
+    pillProgress.textContent = `progress: ${p}%`;
+  }
+
+  async function loadScripts() {
+    scriptSelect.innerHTML = `<option value="">加载中...</option>`;
+    try {
+      const resp = await fetch("/api/v1/prompt-scripts", { method: "GET" });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const scripts = await resp.json();
+
+      scriptSelect.innerHTML = `<option value="">请选择脚本</option>`;
+      scripts.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.script_id;
+        opt.textContent = `${s.name}  (${s.script_id} @ ${s.version})`;
+        opt.dataset.version = s.version || "";
+        scriptSelect.appendChild(opt);
+      });
+
+      log(`脚本列表加载成功：${scripts.length} 个`);
+    } catch (e) {
+      scriptSelect.innerHTML = `<option value="">加载失败</option>`;
+      log(`脚本列表加载失败：${e.message || e}`);
+    }
+  }
+
+  function canCreateJob() {
+    return !!state.file_id && !!scriptSelect.value && !!modelInput.value;
+  }
+
+  function refreshCreateButton() {
+    btnCreateJob.disabled = !canCreateJob();
+  }
+
+  async function uploadFile() {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) { alert("请先选择文件"); return; }
+
+    btnUpload.disabled = true;
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+
+      log(`开始上传：${f.name} (${f.size} bytes)`);
+      const resp = await fetch("/api/v1/files/upload", { method: "POST", body: fd });
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) throw new Error(data.message || `Upload failed: HTTP ${resp.status}`);
+
+      state.file_id = data.file_id;
+      fileIdEl.textContent = state.file_id;
+
+      log(`上传成功：file_id=${state.file_id}, ext=${data.ext}, size=${data.size}`);
+      refreshCreateButton();
+    } catch (e) {
+      log(`上传失败：${e.message || e}`);
+      alert(`上传失败：${e.message || e}`);
+    } finally {
+      btnUpload.disabled = false;
+    }
+  }
+
+  async function createJob() {
+    if (!canCreateJob()) { alert("请先上传文件并选择脚本/模型"); return; }
+
+    btnCreateJob.disabled = true;
+    btnDownloadXlsx.style.display = "none";
+    btnDownloadJson.style.display = "none";
+
+    try {
+      const payload = {
+        file_id: state.file_id,
+        script_id: scriptSelect.value,
+        model_id: modelInput.value.trim(),
+      };
+
+      log(`创建任务：${JSON.stringify(payload)}`);
+      const resp = await fetch("/api/v1/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) throw new Error(data.message || `Create job failed: HTTP ${resp.status}`);
+
+      state.job_id = data.job_id;
+      jobIdEl.textContent = state.job_id;
+
+      setPill(pillStatus, "status: PENDING", null);
+      setPill(pillStage, "stage: PENDING", null);
+      setProgress(0);
+
+      log(`任务创建成功：job_id=${state.job_id}`);
+      startPolling();
+    } catch (e) {
+      log(`创建任务失败：${e.message || e}`);
+      alert(`创建任务失败：${e.message || e}`);
+      refreshCreateButton();
+    }
+  }
+
+  function stopPolling() {
+    if (state.poll_timer) { clearInterval(state.poll_timer); state.poll_timer = null; }
+  }
+
+  function startPolling() {
+    stopPolling();
+    state.poll_timer = setInterval(async () => {
+      if (!state.job_id) return;
+
+      try {
+        const resp = await fetch(`/api/v1/jobs/${state.job_id}`, { method: "GET" });
+        const j = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(j.message || `HTTP ${resp.status}`);
+
+        const status = (j.status || "-").toUpperCase();
+        const stage = (j.stage || "-");
+        const progress = parseInt(j.progress || 0, 10);
+
+        setPill(pillStatus, `status: ${status}`, status === "SUCCEEDED" ? "ok" : (status === "FAILED" ? "bad" : null));
+        setPill(pillStage, `stage: ${stage}`, null);
+        setProgress(progress);
+
+        if (status === "FAILED") {
+          stopPolling();
+          log(`任务失败：${j.error || ""}`);
+          alert(`任务失败：${j.error || ""}`);
+          refreshCreateButton();
+          return;
+        }
+
+        if (status === "SUCCEEDED") {
+          stopPolling();
+          log("任务完成，显示下载按钮");
+
+          btnDownloadXlsx.href = `/api/v1/jobs/${state.job_id}/artifact?type=xlsx`;
+          btnDownloadJson.href = `/api/v1/jobs/${state.job_id}/artifact?type=json`;
+          btnDownloadXlsx.style.display = "inline-block";
+          btnDownloadJson.style.display = "inline-block";
+
+          refreshCreateButton();
+        }
+      } catch (e) {
+        log(`轮询异常：${e.message || e}`);
+      }
+    }, 500);
+
+    log("开始轮询任务状态…");
+  }
+
+  function resetAll() {
+    stopPolling();
+    state.file_id = null;
+    state.job_id = null;
+
+    fileInput.value = "";
+    fileIdEl.textContent = "-";
+    jobIdEl.textContent = "-";
+
+    setPill(pillStatus, "status: -", null);
+    setPill(pillStage, "stage: -", null);
+    setProgress(0);
+
+    btnDownloadXlsx.style.display = "none";
+    btnDownloadJson.style.display = "none";
+
+    logEl.textContent = "";
+    loadScripts();
+    refreshCreateButton();
+  }
+
+  btnUpload.addEventListener("click", uploadFile);
+  btnCreateJob.addEventListener("click", createJob);
+  btnReset.addEventListener("click", resetAll);
+
+  scriptSelect.addEventListener("change", refreshCreateButton);
+  modelInput.addEventListener("input", refreshCreateButton);
+
+  // init
+  loadScripts();
+  refreshCreateButton();
+})();
+</script>
+</body>
+</html>
