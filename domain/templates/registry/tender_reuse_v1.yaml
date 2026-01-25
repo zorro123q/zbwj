@@ -1,0 +1,14 @@
+id: tender_reuse
+version: v1
+name: 招标复用模板
+sections:
+  - title: 基本信息
+    pick:
+      by_tag: ["项目名称", "项目编号", "采购人", "采购代理机构", "截止时间", "开启时间", "递交地点", "开启地点"]
+      fallback_title_keywords: ["项目", "采购", "开标", "截止"]
+      top_k: 10
+  - title: 评分与审查
+    pick:
+      by_tag: ["初步评审", "评分标准", "废标项", "注意事项"]
+      fallback_title_keywords: ["评审", "评分", "废标", "注意"]
+      top_k: 20

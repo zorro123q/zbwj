@@ -43,8 +43,8 @@ def download_artifact(job_id: str):
     GET /api/v1/jobs/<job_id>/artifact?type=xlsx|json
     """
     artifact_type = (request.args.get("type") or "").strip().lower()
-    if artifact_type not in ("xlsx", "json"):
-        return jsonify(error="bad_request", message="type must be xlsx or json"), 400
+    if artifact_type not in ("xlsx", "json", "docx"):
+        return jsonify(error="bad_request", message="type must be xlsx, json, or docx"), 400
 
     job_id = (job_id or "").strip()
     job = db.session.get(Job, job_id)
@@ -56,7 +56,12 @@ def download_artifact(job_id: str):
         # job not finished or failed
         return jsonify(error="conflict", message="job is not SUCCEEDED yet"), 409
 
-    rel_path = job.artifact_xlsx_path if artifact_type == "xlsx" else job.artifact_json_path
+    if artifact_type == "xlsx":
+        rel_path = job.artifact_xlsx_path
+    elif artifact_type == "docx":
+        rel_path = job.artifact_docx_path
+    else:
+        rel_path = job.artifact_json_path
     if not rel_path:
         return jsonify(error="not_found", message="artifact path not set"), 404
 
@@ -78,6 +83,9 @@ def download_artifact(job_id: str):
     if artifact_type == "xlsx":
         mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         download_name = "result.xlsx"
+    elif artifact_type == "docx":
+        mimetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        download_name = "result.docx"
     else:
         mimetype = "application/json"
         download_name = "result.json"
