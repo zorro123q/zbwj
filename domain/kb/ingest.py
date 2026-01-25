@@ -172,6 +172,7 @@ def ingest_kb(file_id: str, title: Optional[str]) -> Dict[str, int]:
         block_rec = KbBlock(
             id=block_id,
             doc_id=doc_id,
+            tag=None,
             section_title=block.section_title,
             section_path=block.section_path,
             content_text=content_text,

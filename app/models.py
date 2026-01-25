@@ -166,6 +166,7 @@ class KbBlock(db.Model):
     id = db.Column(db.String(36), primary_key=True)
     doc_id = db.Column(db.String(36), db.ForeignKey("kb_documents.id"), nullable=False, index=True)
 
+    tag = db.Column(db.String(64), nullable=True, index=True)
     section_title = db.Column(db.String(255), nullable=False)
     section_path = db.Column(db.String(512), nullable=False)
     content_text = db.Column(db.Text, nullable=False)

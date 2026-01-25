@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from domain.kb.ingest import KbIngestError, delete_doc, ingest_kb, list_docs
+from domain.kb.retriever import KbSearchError, search_blocks
 
 bp = Blueprint("kb_v1", __name__)
 
@@ -42,3 +43,35 @@ def delete_kb_doc_api(doc_id: str):
         return jsonify(error="bad_request", message=str(e)), 400
     except Exception:
         return jsonify(error="internal_error", message="kb delete failed"), 500
+
+
+@bp.post("/api/v1/kb/search")
+def search_kb_blocks_api():
+    data = request.get_json(silent=True) or {}
+    query = data.get("query")
+    top_k = data.get("top_k")
+    by_tag = data.get("by_tag")
+    title_keywords = data.get("title_keywords")
+    page = data.get("page") or 1
+    page_size = data.get("page_size") or 20
+
+    try:
+        try:
+            page_int = int(page)
+            page_size_int = int(page_size)
+        except (TypeError, ValueError) as exc:
+            raise KbSearchError("page and page_size must be integers") from exc
+
+        result = search_blocks(
+            query=query,
+            top_k=top_k,
+            by_tag=by_tag,
+            title_keywords=title_keywords,
+            page=page_int,
+            page_size=page_size_int,
+        )
+        return jsonify(result), 200
+    except KbSearchError as e:
+        return jsonify(error="bad_request", message=str(e)), 400
+    except Exception:
+        return jsonify(error="internal_error", message="kb search failed"), 500

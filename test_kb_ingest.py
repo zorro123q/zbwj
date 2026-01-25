@@ -76,10 +76,26 @@ class KbIngestTestCase(unittest.TestCase):
                 block_path = self.repo_root / block.block_docx_path
                 self.assertTrue(block_path.exists())
 
+            blocks[0].tag = "product_intro"
+            db.session.commit()
+
         list_resp = self.client.get("/api/v1/kb/docs?page=1&page_size=10")
         self.assertEqual(list_resp.status_code, 200)
         list_data = list_resp.get_json()
         self.assertGreaterEqual(list_data["total"], 1)
+
+        search_resp = self.client.post(
+            "/api/v1/kb/search",
+            json={
+                "query": "内容",
+                "top_k": 5,
+                "by_tag": "product_intro",
+                "title_keywords": ["总则", "采购范围"],
+            },
+        )
+        self.assertEqual(search_resp.status_code, 200)
+        search_data = search_resp.get_json()
+        self.assertGreaterEqual(search_data["total"], 1)
 
         del_resp = self.client.delete(f"/api/v1/kb/docs/{doc_id}")
         self.assertEqual(del_resp.status_code, 200)
