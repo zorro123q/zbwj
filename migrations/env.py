@@ -1,5 +1,3 @@
-from __future__ import with_statement
-
 import logging
 from logging.config import fileConfig
 
@@ -10,12 +8,13 @@ config = context.config
 fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
-# Use Flask app's SQLAlchemy engine URL
+# 使用 Flask app 的 SQLAlchemy URL
 config.set_main_option(
     "sqlalchemy.url",
     str(current_app.extensions["migrate"].db.engine.url).replace("%", "%%"),
 )
 
+# 关键：拿到 metadata
 target_metadata = current_app.extensions["migrate"].db.metadata
 
 
@@ -28,19 +27,21 @@ def run_migrations_offline():
         compare_type=True,
         dialect_opts={"paramstyle": "named"},
     )
+
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online():
     connectable = current_app.extensions["migrate"].db.engine
+
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
-            render_as_batch=False,
         )
+
         with context.begin_transaction():
             context.run_migrations()
 
