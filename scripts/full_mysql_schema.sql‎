@@ -1,0 +1,156 @@
+-- Full database schema for the ZBWJ MVP (MySQL/InnoDB, utf8mb4)
+-- Generated from Alembic migrations:
+--   9a1c3b4d5e6f_init_mysql_certs
+--   c1d2e3f4a5b6_add_index_search_btree_indexes
+--   c3d4e5f6a7b8_dedupe_and_unique_evidences
+--   1f2a3b4c5d6e_add_kb_tables
+--   2a3b4c5d6e7f_add_kb_block_tag
+--   3b4c5d6e7f8g_add_job_docx_artifact
+-- This script is intended for fresh imports.
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
+CREATE TABLE IF NOT EXISTS files (
+  id VARCHAR(36) NOT NULL,
+  filename VARCHAR(255) NOT NULL,
+  ext VARCHAR(10) NOT NULL,
+  size INT NOT NULL,
+  storage_path VARCHAR(512) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id VARCHAR(36) NOT NULL,
+  file_id VARCHAR(36) NOT NULL,
+  script_id VARCHAR(128) NOT NULL,
+  model_id VARCHAR(128) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  stage VARCHAR(64) NOT NULL,
+  progress INT NOT NULL,
+  artifact_json_path VARCHAR(512) DEFAULT NULL,
+  artifact_xlsx_path VARCHAR(512) DEFAULT NULL,
+  artifact_docx_path VARCHAR(512) DEFAULT NULL,
+  error_message VARCHAR(2000) DEFAULT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  KEY ix_jobs_file_id (file_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS persons (
+  id VARCHAR(36) NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  id_number VARCHAR(256) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_persons_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS companies (
+  id VARCHAR(36) NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  unified_social_credit_code VARCHAR(64) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_companies_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS document_types (
+  id INT NOT NULL AUTO_INCREMENT,
+  scope ENUM('PERSON','COMPANY') NOT NULL,
+  code VARCHAR(64) NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  category VARCHAR(32) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_scope_code (scope, code),
+  KEY idx_doc_types_scope (scope),
+  KEY idx_document_types_code (code),
+  KEY idx_document_types_name (name),
+  FULLTEXT KEY ft_document_types_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS stored_files (
+  id VARCHAR(36) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  ext VARCHAR(10) NOT NULL,
+  mime_type VARCHAR(128) NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  sha256 VARCHAR(64) NOT NULL,
+  storage_rel_path VARCHAR(512) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_sha256 (sha256),
+  KEY idx_stored_files_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS evidences (
+  id VARCHAR(36) NOT NULL,
+  scope ENUM('PERSON','COMPANY') NOT NULL,
+  owner_id VARCHAR(36) NOT NULL,
+  document_type_id INT NOT NULL,
+  file_id VARCHAR(36) NOT NULL,
+  cert_no VARCHAR(128) DEFAULT NULL,
+  issuer VARCHAR(256) DEFAULT NULL,
+  issued_at DATETIME DEFAULT NULL,
+  expires_at DATETIME DEFAULT NULL,
+  status ENUM('VALID','EXPIRED','UNKNOWN') NOT NULL DEFAULT 'UNKNOWN',
+  tags VARCHAR(512) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_evidences_document_type_id FOREIGN KEY (document_type_id) REFERENCES document_types (id),
+  CONSTRAINT fk_evidences_file_id FOREIGN KEY (file_id) REFERENCES stored_files (id),
+  UNIQUE KEY uniq_scope_owner_doc_file (scope, owner_id, document_type_id, file_id),
+  KEY idx_scope_owner (scope, owner_id),
+  KEY idx_scope_doc (scope, document_type_id),
+  KEY idx_cert_no (cert_no),
+  KEY idx_expires_at (expires_at),
+  KEY idx_issuer (issuer),
+  FULLTEXT KEY ft_evidences_search (tags, cert_no, issuer)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS kb_documents (
+  id VARCHAR(36) NOT NULL,
+  file_id VARCHAR(36) NOT NULL,
+  title VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_kb_documents_file_id (file_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS kb_blocks (
+  id VARCHAR(36) NOT NULL,
+  doc_id VARCHAR(36) NOT NULL,
+  section_title VARCHAR(255) NOT NULL,
+  section_path VARCHAR(512) NOT NULL,
+  content_text TEXT NOT NULL,
+  start_idx INT NOT NULL,
+  end_idx INT NOT NULL,
+  block_docx_path VARCHAR(512) NOT NULL,
+  tag VARCHAR(64) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_kb_blocks_doc_id FOREIGN KEY (doc_id) REFERENCES kb_documents (id),
+  KEY ix_kb_blocks_doc_id (doc_id),
+  KEY ix_kb_blocks_tag (tag)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Optional: create/seed alembic_version to match the latest migration.
+CREATE TABLE IF NOT EXISTS alembic_version (
+  version_num VARCHAR(32) NOT NULL,
+  PRIMARY KEY (version_num)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- If this is a fresh import and you will NOT run alembic afterward, keep the line below.
+-- If you plan to run `flask db upgrade`, comment it out.
+INSERT INTO alembic_version (version_num)
+  SELECT '3b4c5d6e7f8g'
+  FROM DUAL
+  WHERE NOT EXISTS (SELECT 1 FROM alembic_version WHERE version_num = '3b4c5d6e7f8g');
+
+SET FOREIGN_KEY_CHECKS = 1;
