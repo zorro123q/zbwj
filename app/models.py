@@ -32,6 +32,7 @@ class Job(db.Model):
 
     artifact_json_path = db.Column(db.String(512), nullable=True)
     artifact_xlsx_path = db.Column(db.String(512), nullable=True)
+    artifact_docx_path = db.Column(db.String(512), nullable=True)
 
     error_message = db.Column(db.String(2000), nullable=True)
 
@@ -148,4 +149,31 @@ class Evidence(db.Model):
         Index("idx_issuer", "issuer"),
         # FULLTEXT indexes created in migration (dialect-specific)
     )
+
+
+class KbDocument(db.Model):
+    __tablename__ = "kb_documents"
+
+    id = db.Column(db.String(36), primary_key=True)
+    file_id = db.Column(db.String(36), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=True)
+
+    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
+
+
+class KbBlock(db.Model):
+    __tablename__ = "kb_blocks"
+
+    id = db.Column(db.String(36), primary_key=True)
+    doc_id = db.Column(db.String(36), db.ForeignKey("kb_documents.id"), nullable=False, index=True)
+
+    tag = db.Column(db.String(64), nullable=True, index=True)
+    section_title = db.Column(db.String(255), nullable=False)
+    section_path = db.Column(db.String(512), nullable=False)
+    content_text = db.Column(db.Text, nullable=False)
+    start_idx = db.Column(db.Integer, nullable=False)
+    end_idx = db.Column(db.Integer, nullable=False)
+    block_docx_path = db.Column(db.String(512), nullable=False)
+
+    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
 

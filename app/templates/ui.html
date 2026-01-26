@@ -32,24 +32,24 @@
     a.btnlink { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 1px solid #111827; text-decoration: none; }
     a.btnlink.primary { background: #111827; color: white; }
     a.btnlink.secondary { background: white; color: #111827; }
-    pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 12px; font-size: 12px; max-height: 240px; overflow: auto; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 12px; font-size: 12px; max-height: 260px; overflow: auto; }
 
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 13px; vertical-align: top; }
     th { background: #f9fafb; text-align: left; }
     .nowrap { white-space: nowrap; }
     .small { font-size: 12px; color: #6b7280; }
-    .right { text-align: right; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .btn-mini { padding: 6px 10px; border-radius: 8px; font-size: 12px; }
   </style>
 </head>
 <body>
 
-  <!-- ============ 索引搜索（T6） ============ -->
+  <!-- ============ 索引搜索（证书库） ============ -->
   <div class="card">
     <h1>证书索引</h1>
     <div class="muted">
-
-      <br/>提示：如果数据库里还没导入对应数据，搜索会返回空。
+      提示：如果数据库里还没导入对应数据，搜索会返回空。
     </div>
 
     <div class="hr"></div>
@@ -133,7 +133,7 @@
             <th class="nowrap">scope</th>
             <th class="nowrap">owner_name</th>
             <th class="nowrap">doc_type</th>
-            <th>cert_no / issuer / tags</th>
+            <th>cert_no / issuer</th>
             <th class="nowrap">issued_at</th>
             <th class="nowrap">expires_at</th>
             <th class="nowrap">status</th>
@@ -151,10 +151,174 @@
     <pre id="searchLog"></pre>
   </div>
 
+  <!-- ============ 知识库检索与导出（离线切片后使用） ============ -->
+  <div class="card">
+    <h1>知识库检索与导出</h1>
+    <div class="muted">
+      说明：招标文件已通过离线脚本切片入库（<span class="mono">kb_documents/kb_blocks</span>，切片文件落到 <span class="mono">storage/kb/blocks/</span>）。
+      <br/>这里支持：关键词检索（如“产品功能”）→ 返回相关内容 → 一键导出 Word（docx）。
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="row">
+      <div>
+        <label>关键词 query</label><br/>
+        <input id="kbQuery" type="text" placeholder="例如：产品功能 / 技术方案 / 交付计划" />
+      </div>
+
+      <div>
+        <label>tag（可选）</label><br/>
+        <input id="kbTag" type="text" placeholder="例如：tender" />
+      </div>
+
+      <div>
+        <label>标题关键词（可选，逗号分隔）</label><br/>
+        <input id="kbTitleKeywords" type="text" placeholder="例如：功能,范围,需求" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>top_k（最多返回）</label><br/>
+        <input id="kbTopK" type="number" value="50" min="1" max="500" />
+      </div>
+
+      <div>
+        <label>page_size</label><br/>
+        <select id="kbPageSize">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+
+      <div>
+        <button id="btnKbSearch">检索</button>
+        <button id="btnKbReset" class="secondary">清空</button>
+      </div>
+
+      <div>
+        <button id="btnKbExport" class="secondary">导出当前检索结果（docx）</button>
+      </div>
+
+      <div class="kv">
+        total：<code id="kbTotal">0</code>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content: space-between;">
+      <div class="small" id="kbReqInfo"></div>
+      <div class="row">
+        <button id="btnKbPrev" class="secondary">上一页</button>
+        <span class="kv">page：<code id="kbPage">1</code></span>
+        <button id="btnKbNext" class="secondary">下一页</button>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div style="overflow:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th class="nowrap">score</th>
+            <th>section_title</th>
+            <th>content_text（预览）</th>
+            <th class="nowrap">操作</th>
+          </tr>
+        </thead>
+        <tbody id="kbTbody">
+          <tr><td colspan="4" class="muted">请先检索</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hr"></div>
+    <div class="muted">选中内容（完整）</div>
+    <pre id="kbPreview"></pre>
+
+    <div class="hr"></div>
+    <div class="muted">知识库日志</div>
+    <pre id="kbLog"></pre>
+  </div>
+
+  <!-- ============ 一键生成：评审办法索引目录（模板评分大类 + result.xlsx 要求 + KB证据） ============ -->
+  <div class="card">
+    <h1>一键生成评审办法索引</h1>
+<!--    <div class="muted">-->
+<!--      <br/>用法：先运行“提取招标要求”的任务得到 <span class="mono">result.xlsx</span> → 填 job_id（或直接用下方任务区的 job_id）→ 点“预览要求表”→ 点“一键生成”下载。-->
+<!--    </div>-->
+
+    <div class="hr"></div>
+
+    <div class="row">
+      <div>
+        <label>job_id（默认使用下方任务区的 job_id）</label><br/>
+        <input id="riJobId" type="text" placeholder="例如：xxxx-xxxx-xxxx" />
+      </div>
+
+      <div>
+        <label>KB tag（可选）</label><br/>
+        <input id="riKbTag" type="text" value="tender" placeholder="例如：tender" />
+      </div>
+
+      <div>
+        <label>每个评分大类证据条数</label><br/>
+        <input id="riTopN" type="number" value="3" min="1" max="10" />
+      </div>
+
+      <div>
+        <label>模板路径（可选）</label><br/>
+        <input id="riTemplatePath" type="text" value="storage/kb/templates/评分大类.docx" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>预览条数 limit</label><br/>
+        <input id="riLimit" type="number" value="200" min="50" max="2000" />
+      </div>
+
+      <div>
+        <button id="btnRiLoad">预览要求表（从 result.xlsx）</button>
+        <button id="btnRiGenerate" class="secondary">一键生成评审办法索引目录（docx）</button>
+      </div>
+
+      <div class="kv">
+        requirements：<code id="riReqCount">0</code>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <h2>招标文件要求表（category / item / value / source）预览</h2>
+    <div style="overflow:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th class="nowrap">category</th>
+            <th class="nowrap">item</th>
+            <th>value</th>
+            <th>source</th>
+          </tr>
+        </thead>
+        <tbody id="riReqTbody">
+          <tr><td colspan="4" class="muted">请先预览</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hr"></div>
+    <div class="muted">生成日志</div>
+    <pre id="riLog"></pre>
+  </div>
+
   <!-- ============ 任务闭环（你已有） ============ -->
   <div class="card">
-    <h1>test</h1>
-    <div class="muted">上传 → 选择脚本 → 创建任务 → 进度轮询 → 下载 XLSX</div>
+    <h1>任务闭环（上传 → 选择脚本 → 创建任务 → 轮询 → 下载）</h1>
+    <div class="muted">上传 → 选择脚本 → 创建任务 → 进度轮询 → 下载 XLSX/JSON/DOCX</div>
 
     <div class="hr"></div>
 
@@ -215,8 +379,25 @@
     <div class="row" style="margin-top:12px;">
       <a id="btnDownloadXlsx" class="btnlink primary" href="#" style="display:none;">下载 result.xlsx</a>
       <a id="btnDownloadJson" class="btnlink secondary" href="#" style="display:none;">下载 result.json</a>
+      <a id="btnDownloadDocx" class="btnlink secondary" href="#" style="display:none;">下载 result.docx</a>
       <button id="btnReset" class="secondary">重置</button>
     </div>
+
+    <div class="hr"></div>
+
+    <div class="muted">任务列表</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="nowrap">job_id</th>
+          <th class="nowrap">status</th>
+          <th class="nowrap">artifact</th>
+        </tr>
+      </thead>
+      <tbody id="jobListTbody">
+        <tr><td colspan="3" class="muted">暂无任务</td></tr>
+      </tbody>
+    </table>
 
     <div class="hr"></div>
 
@@ -228,7 +409,28 @@
 (function () {
   const el = (id) => document.getElementById(id);
 
-  // ======== Index Search UI ========
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g,"&amp;")
+      .replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
+  }
+
+  function downloadBlobAs(blob, filename) {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // =======================
+  // 1) 证书索引 Search
+  // =======================
   const searchQ = el("searchQ");
   const searchScope = el("searchScope");
   const searchDocTypeCode = el("searchDocTypeCode");
@@ -248,7 +450,7 @@
   const searchTbody = el("searchTbody");
   const searchLog = el("searchLog");
 
-  let searchState = { page: 1, total: 0, lastQuery: "" };
+  let searchState = { page: 1, total: 0 };
 
   function slog(msg) {
     const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -256,14 +458,11 @@
     searchLog.scrollTop = searchLog.scrollHeight;
   }
 
-  function escapeHtml(s) {
-    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  }
-
   function buildSearchUrl(page) {
     const params = new URLSearchParams();
     const qv = (searchQ.value || "").trim();
     if (qv) params.set("q", qv);
+
     const scopev = (searchScope.value || "").trim();
     if (scopev) params.set("scope", scopev);
 
@@ -286,7 +485,7 @@
     return "/api/v1/index/search?" + params.toString();
   }
 
-  function renderItems(items) {
+  function renderIndexItems(items) {
     if (!items || items.length === 0) {
       searchTbody.innerHTML = `<tr><td colspan="8" class="muted">无结果</td></tr>`;
       return;
@@ -294,7 +493,6 @@
 
     const rows = items.map(it => {
       const file = it.file || {};
-      const tags = it.tags || ""; // 后端没返回 tags 字段，这里不依赖
       const cert = it.cert_no || "";
       const issuer = it.issuer || "";
 
@@ -327,21 +525,16 @@
     searchTbody.innerHTML = rows;
   }
 
-  async function doSearch(page) {
+  async function doIndexSearch(page) {
     const url = buildSearchUrl(page);
     searchReqUrl.textContent = "GET " + url;
-    searchState.lastQuery = url;
-
     slog("search: " + url);
 
     btnSearch.disabled = true;
     try {
       const resp = await fetch(url, { method: "GET" });
       const data = await resp.json().catch(() => ({}));
-
-      if (!resp.ok) {
-        throw new Error(data.message || `HTTP ${resp.status}`);
-      }
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
 
       searchState.page = data.page || page;
       searchState.total = data.total || 0;
@@ -349,9 +542,8 @@
       searchPage.textContent = String(searchState.page);
       searchTotal.textContent = String(searchState.total);
 
-      renderItems(data.items || []);
+      renderIndexItems(data.items || []);
 
-      // pagination button enable/disable
       const ps = parseInt(searchPageSize.value || "20", 10);
       btnPrev.disabled = (searchState.page <= 1);
       btnNext.disabled = (searchState.page * ps >= searchState.total);
@@ -364,9 +556,9 @@
     }
   }
 
-  btnSearch.addEventListener("click", () => doSearch(1));
-  btnPrev.addEventListener("click", () => doSearch(Math.max(1, (searchState.page || 1) - 1)));
-  btnNext.addEventListener("click", () => doSearch((searchState.page || 1) + 1));
+  btnSearch.addEventListener("click", () => doIndexSearch(1));
+  btnPrev.addEventListener("click", () => doIndexSearch(Math.max(1, (searchState.page || 1) - 1)));
+  btnNext.addEventListener("click", () => doIndexSearch((searchState.page || 1) + 1));
 
   btnSearchReset.addEventListener("click", () => {
     searchQ.value = "";
@@ -385,12 +577,314 @@
     searchTbody.innerHTML = `<tr><td colspan="8" class="muted">请先搜索</td></tr>`;
   });
 
-  // Enter to search
   searchQ.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doSearch(1);
+    if (e.key === "Enter") doIndexSearch(1);
   });
 
-  // ======== Job Flow UI (existing) ========
+  // =======================
+  // 2) KB Search + Export
+  // =======================
+  const kbQuery = el("kbQuery");
+  const kbTag = el("kbTag");
+  const kbTitleKeywords = el("kbTitleKeywords");
+  const kbTopK = el("kbTopK");
+  const kbPageSize = el("kbPageSize");
+
+  const btnKbSearch = el("btnKbSearch");
+  const btnKbReset = el("btnKbReset");
+  const btnKbExport = el("btnKbExport");
+  const btnKbPrev = el("btnKbPrev");
+  const btnKbNext = el("btnKbNext");
+
+  const kbTotal = el("kbTotal");
+  const kbPage = el("kbPage");
+  const kbReqInfo = el("kbReqInfo");
+  const kbTbody = el("kbTbody");
+  const kbPreview = el("kbPreview");
+  const kbLog = el("kbLog");
+
+  let kbState = { page: 1, total: 0, lastItems: [] };
+
+  function kblog(msg) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    kbLog.textContent = (kbLog.textContent ? (kbLog.textContent + "\n") : "") + line;
+    kbLog.scrollTop = kbLog.scrollHeight;
+  }
+
+  function parseTitleKeywords() {
+    const s = (kbTitleKeywords.value || "").trim();
+    if (!s) return null;
+    const arr = s.split(",").map(x => x.trim()).filter(Boolean);
+    return arr.length ? arr : null;
+  }
+
+  function renderKbItems(items) {
+    kbState.lastItems = items || [];
+    if (!items || items.length === 0) {
+      kbTbody.innerHTML = `<tr><td colspan="4" class="muted">无结果</td></tr>`;
+      return;
+    }
+
+    const rows = items.map((it, idx) => {
+      const content = it.content_text || "";
+      const preview = content.length > 240 ? (content.slice(0, 240) + "…") : content;
+
+      return `
+        <tr>
+          <td class="nowrap">${escapeHtml(it.score ?? 0)}</td>
+          <td>
+            <div><b>${escapeHtml(it.section_title || "")}</b></div>
+            <div class="small">doc_id: ${escapeHtml(it.doc_id || "")}</div>
+            <div class="small">block_id: ${escapeHtml(it.block_id || "")}</div>
+            <div class="small">docx_path: <span class="mono">${escapeHtml(it.content_docx_path || "")}</span></div>
+          </td>
+          <td>${escapeHtml(preview)}</td>
+          <td class="nowrap">
+            <button class="btn-mini secondary" data-action="preview" data-idx="${idx}">预览</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    kbTbody.innerHTML = rows;
+
+    kbTbody.querySelectorAll('button[data-action="preview"]').forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = parseInt(btn.getAttribute("data-idx") || "0", 10);
+        const it = kbState.lastItems[i];
+        kbPreview.textContent = it ? (it.content_text || "") : "";
+      });
+    });
+  }
+
+  async function doKbSearch(page) {
+    const q = (kbQuery.value || "").trim();
+    if (!q) { alert("请输入关键词 query"); return; }
+
+    const topK = Math.max(1, parseInt(kbTopK.value || "50", 10));
+    const pageSize = Math.max(1, parseInt(kbPageSize.value || "20", 10));
+    const tag = (kbTag.value || "").trim();
+    const titleKw = parseTitleKeywords();
+
+    const payload = {
+      query: q,
+      top_k: topK,
+      by_tag: tag || null,
+      title_keywords: titleKw,
+      page: page,
+      page_size: pageSize
+    };
+
+    kbReqInfo.textContent = "POST /api/v1/kb/search  " + JSON.stringify(payload);
+    kblog("search: " + JSON.stringify(payload));
+
+    btnKbSearch.disabled = true;
+    try {
+      const resp = await fetch("/api/v1/kb/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+
+      kbState.page = data.page || page;
+      kbState.total = data.total || 0;
+      kbPage.textContent = String(kbState.page);
+      kbTotal.textContent = String(kbState.total);
+
+      renderKbItems(data.items || []);
+
+      btnKbPrev.disabled = (kbState.page <= 1);
+      btnKbNext.disabled = (kbState.page * pageSize >= kbState.total);
+
+    } catch (e) {
+      kblog("error: " + (e.message || e));
+      kbTbody.innerHTML = `<tr><td colspan="4" class="muted">查询失败：${escapeHtml(e.message || e)}</td></tr>`;
+    } finally {
+      btnKbSearch.disabled = false;
+    }
+  }
+
+  async function doKbExport() {
+    const q = (kbQuery.value || "").trim();
+    if (!q) { alert("请输入关键词 query"); return; }
+
+    const topK = Math.max(1, parseInt(kbTopK.value || "50", 10));
+    const tag = (kbTag.value || "").trim();
+    const titleKw = parseTitleKeywords();
+
+    const payload = {
+      query: q,
+      top_k: topK,
+      by_tag: tag || null,
+      title_keywords: titleKw
+    };
+
+    kblog("export: " + JSON.stringify(payload));
+    btnKbExport.disabled = true;
+
+    try {
+      const resp = await fetch("/api/v1/kb/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${resp.status}`);
+      }
+
+      const blob = await resp.blob();
+      downloadBlobAs(blob, "kb_export.docx");
+      kblog("export done: kb_export.docx");
+    } catch (e) {
+      kblog("export error: " + (e.message || e));
+      alert("导出失败：" + (e.message || e));
+    } finally {
+      btnKbExport.disabled = false;
+    }
+  }
+
+  btnKbSearch.addEventListener("click", () => doKbSearch(1));
+  btnKbPrev.addEventListener("click", () => doKbSearch(Math.max(1, kbState.page - 1)));
+  btnKbNext.addEventListener("click", () => doKbSearch(kbState.page + 1));
+  btnKbExport.addEventListener("click", doKbExport);
+
+  btnKbReset.addEventListener("click", () => {
+    kbQuery.value = "";
+    kbTag.value = "";
+    kbTitleKeywords.value = "";
+    kbTopK.value = "50";
+    kbPageSize.value = "20";
+    kbState.page = 1;
+    kbState.total = 0;
+    kbState.lastItems = [];
+    kbPage.textContent = "1";
+    kbTotal.textContent = "0";
+    kbReqInfo.textContent = "";
+    kbLog.textContent = "";
+    kbPreview.textContent = "";
+    kbTbody.innerHTML = `<tr><td colspan="4" class="muted">请先检索</td></tr>`;
+  });
+
+  kbQuery.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doKbSearch(1);
+  });
+
+  // =======================
+  // 3) Review Index: Preview + Generate
+  // =======================
+  const riJobId = el("riJobId");
+  const riKbTag = el("riKbTag");
+  const riTopN = el("riTopN");
+  const riTemplatePath = el("riTemplatePath");
+  const riLimit = el("riLimit");
+
+  const btnRiLoad = el("btnRiLoad");
+  const btnRiGenerate = el("btnRiGenerate");
+  const riReqCount = el("riReqCount");
+  const riReqTbody = el("riReqTbody");
+  const riLog = el("riLog");
+
+  function rilog(msg) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    riLog.textContent = (riLog.textContent ? (riLog.textContent + "\n") : "") + line;
+    riLog.scrollTop = riLog.scrollHeight;
+  }
+
+  function getReviewJobId() {
+    const v = (riJobId.value || "").trim();
+    return v || (state.job_id || "");
+  }
+
+  function renderReqRows(rows) {
+    if (!rows || rows.length === 0) {
+      riReqTbody.innerHTML = `<tr><td colspan="4" class="muted">无数据</td></tr>`;
+      return;
+    }
+    riReqTbody.innerHTML = rows.map(r => `
+      <tr>
+        <td class="nowrap">${escapeHtml(r.category || "")}</td>
+        <td class="nowrap">${escapeHtml(r.item || "")}</td>
+        <td>${escapeHtml(r.value || "")}</td>
+        <td>${escapeHtml(r.source || "")}</td>
+      </tr>
+    `).join("");
+  }
+
+  // 预览：从 job 的 artifact_xlsx_path 解析要求表（后端实现 /api/v1/review-index/preview）
+  btnRiLoad.addEventListener("click", async () => {
+    const jid = getReviewJobId();
+    if (!jid) { alert("请先填写 job_id 或先运行任务生成 result.xlsx"); return; }
+
+    const limit = Math.max(50, Math.min(2000, parseInt(riLimit.value || "200", 10)));
+    const url = `/api/v1/review-index/preview?job_id=${encodeURIComponent(jid)}&limit=${limit}`;
+
+    rilog("preview: " + url);
+    btnRiLoad.disabled = true;
+
+    try {
+      const resp = await fetch(url, { method: "GET" });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+
+      const req = data.requirements || data.items || [];
+      riReqCount.textContent = String(req.length);
+      renderReqRows(req);
+
+      if (data.meta) rilog("meta: " + JSON.stringify(data.meta));
+      else rilog("preview ok");
+    } catch (e) {
+      rilog("preview error: " + (e.message || e));
+      alert("预览失败：" + (e.message || e));
+    } finally {
+      btnRiLoad.disabled = false;
+    }
+  });
+
+  // 生成：模板评分大类 + xlsx要求 + KB证据（后端实现 /api/v1/review-index/generate）
+  btnRiGenerate.addEventListener("click", async () => {
+    const jid = getReviewJobId();
+    if (!jid) { alert("请先填写 job_id 或先运行任务生成 result.xlsx"); return; }
+
+    const payload = {
+      job_id: jid,
+      kb_tag: (riKbTag.value || "").trim() || null,
+      evidence_top_n: parseInt(riTopN.value || "3", 10),
+      template_docx_path: (riTemplatePath.value || "").trim() || null
+    };
+
+    rilog("generate: " + JSON.stringify(payload));
+    btnRiGenerate.disabled = true;
+
+    try {
+      const resp = await fetch("/api/v1/review-index/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${resp.status}`);
+      }
+
+      const blob = await resp.blob();
+      downloadBlobAs(blob, "评审办法索引目录.docx");
+      rilog("generate done: 评审办法索引目录.docx");
+    } catch (e) {
+      rilog("generate error: " + (e.message || e));
+      alert("生成失败：" + (e.message || e));
+    } finally {
+      btnRiGenerate.disabled = false;
+    }
+  });
+
+  // =======================
+  // 4) Job Flow UI (existing)
+  // =======================
   const fileInput = el("fileInput");
   const btnUpload = el("btnUpload");
   const fileIdEl = el("fileId");
@@ -407,11 +901,43 @@
 
   const btnDownloadXlsx = el("btnDownloadXlsx");
   const btnDownloadJson = el("btnDownloadJson");
+  const btnDownloadDocx = el("btnDownloadDocx");
   const btnReset = el("btnReset");
 
   const logEl = el("log");
+  const jobListTbody = el("jobListTbody");
 
   let state = { file_id: null, job_id: null, poll_timer: null };
+  let jobList = [];
+
+  function renderJobList() {
+    if (!jobList.length) {
+      jobListTbody.innerHTML = `<tr><td colspan="3" class="muted">暂无任务</td></tr>`;
+      return;
+    }
+    jobListTbody.innerHTML = jobList.map(job => {
+      const status = job.status || "-";
+      const art = [];
+      if (job.xlsx_ready) art.push(`<a href="/api/v1/jobs/${job.job_id}/artifact?type=xlsx">xlsx</a>`);
+      if (job.json_ready) art.push(`<a href="/api/v1/jobs/${job.job_id}/artifact?type=json">json</a>`);
+      if (job.docx_ready) art.push(`<a href="/api/v1/jobs/${job.job_id}/artifact?type=docx">docx</a>`);
+      return `
+        <tr>
+          <td class="nowrap">${job.job_id}</td>
+          <td class="nowrap">${status}</td>
+          <td>${art.length ? art.join(" / ") : "-"}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function upsertJob(job_id, status, flags) {
+    const idx = jobList.findIndex(j => j.job_id === job_id);
+    const rec = { job_id, status, ...flags };
+    if (idx >= 0) jobList[idx] = { ...jobList[idx], ...rec };
+    else jobList.push(rec);
+    renderJobList();
+  }
 
   function log(msg) {
     const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -443,7 +969,6 @@
         const opt = document.createElement("option");
         opt.value = s.script_id;
         opt.textContent = `${s.name}  (${s.script_id} @ ${s.version})`;
-        opt.dataset.version = s.version || "";
         scriptSelect.appendChild(opt);
       });
 
@@ -496,6 +1021,7 @@
     btnCreateJob.disabled = true;
     btnDownloadXlsx.style.display = "none";
     btnDownloadJson.style.display = "none";
+    btnDownloadDocx.style.display = "none";
 
     try {
       const payload = {
@@ -511,17 +1037,21 @@
         body: JSON.stringify(payload),
       });
       const data = await resp.json().catch(() => ({}));
-
       if (!resp.ok) throw new Error(data.message || `Create job failed: HTTP ${resp.status}`);
 
       state.job_id = data.job_id;
       jobIdEl.textContent = state.job_id;
+
+      // 便捷：自动填充到“评审办法索引目录”的 job_id 输入框
+      if (riJobId && !riJobId.value) riJobId.value = state.job_id;
 
       setPill(pillStatus, "status: PENDING", null);
       setPill(pillStage, "stage: PENDING", null);
       setProgress(0);
 
       log(`任务创建成功：job_id=${state.job_id}`);
+      upsertJob(state.job_id, "PENDING", { xlsx_ready: false, json_ready: false, docx_ready: false });
+
       startPolling();
     } catch (e) {
       log(`创建任务失败：${e.message || e}`);
@@ -552,6 +1082,13 @@
         setPill(pillStage, `stage: ${stage}`, null);
         setProgress(progress);
 
+        const flags = {
+          xlsx_ready: status === "SUCCEEDED",
+          json_ready: status === "SUCCEEDED",
+          docx_ready: status === "SUCCEEDED",
+        };
+        upsertJob(state.job_id, status, flags);
+
         if (status === "FAILED") {
           stopPolling();
           log(`任务失败：${j.error || ""}`);
@@ -566,15 +1103,20 @@
 
           btnDownloadXlsx.href = `/api/v1/jobs/${state.job_id}/artifact?type=xlsx`;
           btnDownloadJson.href = `/api/v1/jobs/${state.job_id}/artifact?type=json`;
+          btnDownloadDocx.href = `/api/v1/jobs/${state.job_id}/artifact?type=docx`;
           btnDownloadXlsx.style.display = "inline-block";
           btnDownloadJson.style.display = "inline-block";
+          btnDownloadDocx.style.display = "inline-block";
+
+          // 便捷：自动填充到“评审办法索引目录”的 job_id 输入框
+          if (riJobId) riJobId.value = state.job_id;
 
           refreshCreateButton();
         }
       } catch (e) {
         log(`轮询异常：${e.message || e}`);
       }
-    }, 500);
+    }, 600);
 
     log("开始轮询任务状态…");
   }
@@ -594,6 +1136,7 @@
 
     btnDownloadXlsx.style.display = "none";
     btnDownloadJson.style.display = "none";
+    btnDownloadDocx.style.display = "none";
 
     logEl.textContent = "";
     loadScripts();

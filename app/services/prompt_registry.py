@@ -70,7 +70,11 @@ class PromptRegistry:
                         continue
                     seen.add(key)
 
-                    scripts.append({k: data.get(k) for k in REQUIRED_FIELDS})
+                    script_data = {k: data.get(k) for k in REQUIRED_FIELDS}
+                    for opt_key in ("template_id", "template_version"):
+                        if opt_key in data:
+                            script_data[opt_key] = data.get(opt_key)
+                    scripts.append(script_data)
                 except Exception as e:
                     # 不要让单个坏文件导致整个接口 500
                     print(f"[PromptRegistry] skip {path.name}: {e}")

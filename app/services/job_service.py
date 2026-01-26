@@ -34,10 +34,11 @@ def create_job(file_id: str, script_id: str, model_id: str) -> str:
     if f is None:
         raise ValueError("file_id not found")
 
-    # Ensure script exists in registry (by script_id only; version ignored in MVP)
-    scripts = PromptRegistry.load_all()
-    if not any(s.get("script_id") == script_id for s in scripts):
-        raise ValueError("script_id not found")
+    if script_id != "EXPORT_TEMPLATE_DOCX":
+        # Ensure script exists in registry (by script_id only; version ignored in MVP)
+        scripts = PromptRegistry.load_all()
+        if not any(s.get("script_id") == script_id for s in scripts):
+            raise ValueError("script_id not found")
 
     job_id = str(uuid.uuid4())
 
@@ -51,6 +52,7 @@ def create_job(file_id: str, script_id: str, model_id: str) -> str:
         progress=0,
         artifact_json_path=None,
         artifact_xlsx_path=None,
+        artifact_docx_path=None,
         error_message=None,
     )
     db.session.add(job)

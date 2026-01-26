@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from typing import Optional
 
@@ -15,6 +17,12 @@ def create_app(env: Optional[str] = None) -> Flask:
 
     # ✅ 关键：加载 instance/config.py（可覆盖 SQLALCHEMY_DATABASE_URI 等）
     app.config.from_pyfile("config.py", silent=True)
+
+    app.config.setdefault(
+        "MAX_CONTENT_LENGTH",
+        int(os.getenv("MAX_CONTENT_LENGTH", 200 * 1024 * 1024))
+    )
+
     uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
     if uri.startswith("mysql"):
         app.config.setdefault(
@@ -34,6 +42,9 @@ def create_app(env: Optional[str] = None) -> Flask:
     from .api.jobs import bp as jobs_bp
     from .web.ui import bp as ui_bp
     from .api.v1.index import bp as index_bp
+    from .api.v1.kb import bp as kb_bp
+    from .api.v1.review_index import bp as review_index_bp
+    app.register_blueprint(review_index_bp)
 
     app.register_blueprint(root_bp)
     app.register_blueprint(health_bp)
@@ -42,6 +53,7 @@ def create_app(env: Optional[str] = None) -> Flask:
     app.register_blueprint(jobs_bp)
     app.register_blueprint(ui_bp)
     app.register_blueprint(index_bp)
+    app.register_blueprint(kb_bp)
 
     # CLI: seed document types
     from .seed import seed_document_types
