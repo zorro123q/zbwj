@@ -32,7 +32,17 @@ flowchart TD
 > 上图展示了请求从客户端进入 Flask 应用，经过 API 层调用领域服务，最终落到数据库或文件存储，并可由后台任务驱动处理流程。对应实现可参考 `app/` 与 `domain/` 目录结构。【F:app/__init__.py†L1-L52】
 
 ## 文件说明（逐文件说明 + 可删建议）
-> 说明：以下清单按仓库 **已跟踪文件** 列出。带“可删”的一般是运行/脚本产物或缓存文件；删掉后会自动重新生成或仅影响样例数据。
+> 说明：以下清单按仓库 **已跟踪文件** 列出。带“可删”的一般是运行/脚本产物、样例数据或占位文件；删掉后会自动重新生成或仅影响演示功能。
+
+### 先回答你的问题：除了缓存，还有哪些可以删？
+有的，主要是**样例数据/日志/占位文件/重复脚本**，例如：
+- `bulk_kb_result.jsonl`、`kb_ingest_offline.jsonl`、`kb_offline_build.jsonl`：脚本输出日志，可删（需时可重跑生成）。【F:bulk_kb_result.jsonl†L1】【F:kb_ingest_offline.jsonl†L1】【F:kb_offline_build.jsonl†L1】
+- `downloaded_result.json`、`downloaded_result.xlsx`：示例结果文件，可删（仅样例）。【F:downloaded_result.json†L1-L20】
+- `app/prompt_scripts/tender_extract_v1.json`：空占位文件，可删（不影响功能）。
+- `app/prompt_scripts/2.json`：历史/样例结构（非标准脚本格式），不用时可删。【F:app/prompt_scripts/2.json†L1-L27】
+- `scripts/kb_build_offline.py`：与 `scripts/kb_ingest_offline.py` 重复，可删其一（保留一个即可）。【F:scripts/kb_build_offline.py†L1-L72】【F:scripts/kb_ingest_offline.py†L1-L72】
+- `scripts/full_mysql_schema.sql‎`：迁移汇总的便捷建表脚本，可删（若你只用 Alembic 迁移）。【F:scripts/full_mysql_schema.sql‎†L1-L80】
+- `instance/app.db`：运行时 SQLite 数据库，可删（会丢数据）。 
 
 ### 顶层文件
 - `README.md`：项目说明文档（本文）。
