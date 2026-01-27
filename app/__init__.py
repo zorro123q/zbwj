@@ -43,6 +43,7 @@ def create_app(env: Optional[str] = None) -> Flask:
     from .web.ui import bp as ui_bp
     from .api.v1.index import bp as index_bp
     from .api.v1.kb import bp as kb_bp
+    from .api.v1.certs import bp as certs_bp
     from .api.v1.review_index import bp as review_index_bp
     app.register_blueprint(review_index_bp)
 
@@ -54,6 +55,7 @@ def create_app(env: Optional[str] = None) -> Flask:
     app.register_blueprint(ui_bp)
     app.register_blueprint(index_bp)
     app.register_blueprint(kb_bp)
+    app.register_blueprint(certs_bp)
 
     # CLI: seed document types
     from .seed import seed_document_types

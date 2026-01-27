@@ -595,6 +595,8 @@
         <div><b>${escapeHtml(file.original_name || "")}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
+        ${file.preview_url ? `<div class="mt-6"><img src="${file.preview_url}" alt="cert" style="max-width:160px; max-height:120px; border:1px solid #e5e7eb; border-radius:6px;" /></div>` : ""}
+        ${file.download_url ? `<div class="mt-6"><a href="${file.download_url}" download>下载图片</a></div>` : ""}
       `;
 
       return `
