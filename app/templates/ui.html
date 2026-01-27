@@ -320,17 +320,13 @@
             <h3>公司证书新增</h3>
             <div class="form-grid">
               <div class="field">
-                <label>证书详细名称（file）</label>
-                <input id="companyCertName" type="text" placeholder="例如：ISO9001 质量管理体系认证证书_01.png" />
-              </div>
-              <div class="field">
-                <label>证书类型（doc_type，自动识别）</label>
+                <label>证书类型（doc_type）</label>
                 <select id="companyCertType">
                   <option value="">请选择</option>
-                  <option value="patent">专利</option>
-                  <option value="business_license">营业执照</option>
-                  <option value="qualification">资质证书</option>
-                  <option value="tax_certificate">税务证明</option>
+                  <option value="专利">专利</option>
+                  <option value="营业执照">营业执照</option>
+                  <option value="资质证书">资质证书</option>
+                  <option value="税务证明">税务证明</option>
                 </select>
               </div>
               <div class="field">
@@ -355,16 +351,12 @@
                 <input id="personName" type="text" placeholder="例如：武全胜" />
               </div>
               <div class="field">
-                <label>证书详细名称（file）</label>
-                <input id="personCertName" type="text" placeholder="例如：高级信息系统项目管理师-武全胜.png" />
-              </div>
-              <div class="field">
-                <label>证书类型（doc_type，自动识别）</label>
+                <label>证书类型（doc_type）</label>
                 <select id="personCertType">
                   <option value="">请选择</option>
-                  <option value="network_engineer">网络工程师</option>
-                  <option value="project_manager">项目管理师</option>
-                  <option value="diploma">学历证书</option>
+                  <option value="网络工程师">网络工程师</option>
+                  <option value="项目管理师">项目管理师</option>
+                  <option value="学历证书">学历证书</option>
                 </select>
               </div>
               <div class="field">
@@ -382,7 +374,7 @@
           </div>
         </div>
 
-        <div class="muted small">证书类型会根据证件名称尝试自动匹配，可手动调整。</div>
+        <div class="muted small">证书类型为中文选项，选中表格记录后可在此修改。</div>
       </div>
     </div>
 
@@ -709,7 +701,6 @@
       const certName = it.cert_no || "";
       const fileInfo = `
         <div><b>${escapeHtml(certName)}</b></div>
-        <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
       `;
 
@@ -790,13 +781,11 @@
   const certCreateModal = el("certCreateModal");
   const btnCertCloseCreate = el("btnCertCloseCreate");
   const certSelectedLabel = el("certSelectedLabel");
-  const companyCertName = el("companyCertName");
   const companyCertType = el("companyCertType");
   const companyCertFile = el("companyCertFile");
   const btnCompanyCertCreate = el("btnCompanyCertCreate");
   const btnCompanyCertUpdate = el("btnCompanyCertUpdate");
   const personName = el("personName");
-  const personCertName = el("personCertName");
   const personCertType = el("personCertType");
   const personCertFile = el("personCertFile");
   const btnPersonCertCreate = el("btnPersonCertCreate");
@@ -817,23 +806,6 @@
     params.set("page", String(page));
     params.set("page_size", String(certPageSize));
     return "/api/v1/certs?" + params.toString();
-  }
-
-  const certTypeAutoMap = [
-    { keyword: "营业执照", type: "business_license" },
-    { keyword: "税", type: "tax_certificate" },
-    { keyword: "专利", type: "patent" },
-    { keyword: "资质", type: "qualification" },
-    { keyword: "网络工程师", type: "network_engineer" },
-    { keyword: "项目管理", type: "project_manager" },
-    { keyword: "学历", type: "diploma" },
-  ];
-
-  function detectCertType(name) {
-    const raw = (name || "").trim();
-    if (!raw) return "";
-    const hit = certTypeAutoMap.find(item => raw.includes(item.keyword));
-    return hit ? hit.type : "";
   }
 
   function setModalMode(mode) {
@@ -857,7 +829,6 @@
       const certName = it.cert_no || "";
       const fileInfo = `
         <div><b>${escapeHtml(certName)}</b></div>
-        <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
       `;
 
@@ -928,26 +899,20 @@
   function fillModalFromSelection(data) {
     if (!data) return;
     if (data.scope === "COMPANY") {
-      companyCertName.value = data.cert_no || data.doc_type_name || "";
       companyCertType.value = data.doc_type_code || "";
       personName.value = "";
-      personCertName.value = "";
       personCertType.value = "";
     } else {
       personName.value = data.owner_name || "";
-      personCertName.value = data.cert_no || data.doc_type_name || "";
       personCertType.value = data.doc_type_code || "";
-      companyCertName.value = "";
       companyCertType.value = "";
     }
   }
 
   function resetCreateForm() {
-    companyCertName.value = "";
     companyCertType.value = "";
     if (companyCertFile) companyCertFile.value = "";
     personName.value = "";
-    personCertName.value = "";
     personCertType.value = "";
     if (personCertFile) personCertFile.value = "";
   }
@@ -994,16 +959,6 @@
   btnCertCloseCreate.addEventListener("click", closeCertModal);
   certCreateModal.querySelector(".modal-backdrop").addEventListener("click", closeCertModal);
 
-  companyCertName.addEventListener("input", () => {
-    const autoType = detectCertType(companyCertName.value);
-    if (autoType) companyCertType.value = autoType;
-  });
-
-  personCertName.addEventListener("input", () => {
-    const autoType = detectCertType(personCertName.value);
-    if (autoType) personCertType.value = autoType;
-  });
-
   btnCompanyCertCreate.addEventListener("click", async () => {
     if (!companyCertType.value) {
       certLogLine("error: 请填写证书类型");
@@ -1019,10 +974,10 @@
         method: "POST",
         body: buildCreateFormData({
           scope: "COMPANY",
-          ownerName: companyCertName.value || "未命名公司",
+          ownerName: "未命名公司",
           docTypeCode: companyCertType.value,
           docTypeName: getDocTypeName(companyCertType),
-          certName: companyCertName.value,
+          certName: getDocTypeName(companyCertType),
           fileInput: companyCertFile,
         }),
       });
@@ -1058,7 +1013,7 @@
           ownerName: personName.value,
           docTypeCode: personCertType.value,
           docTypeName: getDocTypeName(personCertType),
-          certName: personCertName.value,
+          certName: getDocTypeName(personCertType),
           fileInput: personCertFile,
         }),
       });
@@ -1084,7 +1039,7 @@
           ownerName: selectedCert.owner_name,
           docTypeCode: companyCertType.value,
           docTypeName: getDocTypeName(companyCertType),
-          certName: companyCertName.value,
+          certName: getDocTypeName(companyCertType),
           fileInput: companyCertFile,
         }),
       });
@@ -1110,7 +1065,7 @@
           ownerName: personName.value,
           docTypeCode: personCertType.value,
           docTypeName: getDocTypeName(personCertType),
-          certName: personCertName.value,
+          certName: getDocTypeName(personCertType),
           fileInput: personCertFile,
         }),
       });
