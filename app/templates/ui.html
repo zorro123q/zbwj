@@ -5,404 +5,499 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>flask-gpt-stack MVP</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
-    .card { max-width: 980px; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 1px 8px rgba(0,0,0,.04); margin-bottom: 16px; }
-    h1 { font-size: 18px; margin: 0 0 12px; }
-    h2 { font-size: 15px; margin: 0 0 10px; }
+    :root {
+      color-scheme: light;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --accent: #111827;
+      --accent-soft: #f1f5f9;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 22px 60px;
+      display: grid;
+      gap: 18px;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px 22px;
+      background: linear-gradient(120deg, #111827 0%, #1f2937 50%, #0f172a 100%);
+      color: #fff;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .page-header h1 {
+      font-size: 20px;
+      margin: 0 0 6px;
+    }
+    .page-header p {
+      margin: 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      background: var(--card);
+      display: grid;
+      gap: 14px;
+    }
+    h1 { font-size: 18px; margin: 0; }
+    h2 { font-size: 15px; margin: 0; }
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .section-title .muted { margin-top: 6px; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-    .row > * { margin: 6px 0; }
-    label { font-size: 13px; color: #374151; }
+    .row > * { margin: 2px 0; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px 16px;
+      align-items: end;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    label { font-size: 12px; color: var(--muted); font-weight: 600; }
     input[type="text"], input[type="number"], input[type="date"], select {
-      padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; min-width: 220px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      min-width: 0;
+      background: #fff;
+      font-size: 13px;
+      color: var(--text);
     }
     input[type="file"] { padding: 6px; }
-    button { padding: 9px 12px; border: 1px solid #111827; background: #111827; color: white; border-radius: 10px; cursor: pointer; }
-    button.secondary { background: white; color: #111827; }
+    button {
+      padding: 10px 14px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button.secondary { background: white; color: var(--accent); }
     button:disabled { opacity: .5; cursor: not-allowed; }
-    .muted { color: #6b7280; font-size: 13px; }
-    .hr { height: 1px; background: #e5e7eb; margin: 14px 0; }
-    .kv { font-size: 13px; color: #111827; }
-    .kv code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
-    .progress-wrap { width: 100%; max-width: 720px; height: 14px; border-radius: 999px; background: #f3f4f6; overflow: hidden; border: 1px solid #e5e7eb; }
-    .progress-bar { height: 100%; width: 0%; background: #111827; transition: width .2s ease; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .hr { height: 1px; background: var(--line); margin: 6px 0; }
+    .kv { font-size: 13px; color: var(--text); }
+    .kv code { background: var(--accent-soft); padding: 2px 6px; border-radius: 6px; }
+    .progress-wrap { width: 100%; max-width: 720px; height: 14px; border-radius: 999px; background: #f3f4f6; overflow: hidden; border: 1px solid var(--line); }
+    .progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width .2s ease; }
     .statusline { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #e5e7eb; background: #fafafa; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); background: #fafafa; }
     .pill.ok { border-color: #86efac; background: #f0fdf4; }
     .pill.bad { border-color: #fca5a5; background: #fef2f2; }
-    a.btnlink { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 1px solid #111827; text-decoration: none; }
-    a.btnlink.primary { background: #111827; color: white; }
-    a.btnlink.secondary { background: white; color: #111827; }
-    pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 12px; font-size: 12px; max-height: 260px; overflow: auto; }
+    a.btnlink { display: inline-block; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--accent); text-decoration: none; font-size: 13px; }
+    a.btnlink.primary { background: var(--accent); color: white; }
+    a.btnlink.secondary { background: white; color: var(--accent); }
+    pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 12px; font-size: 12px; max-height: 260px; overflow: auto; margin: 0; }
 
     table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 13px; vertical-align: top; }
-    th { background: #f9fafb; text-align: left; }
+    th, td { border: 1px solid var(--line); padding: 8px; font-size: 13px; vertical-align: top; }
+    th { background: #f8fafc; text-align: left; }
     .nowrap { white-space: nowrap; }
-    .small { font-size: 12px; color: #6b7280; }
+    .small { font-size: 12px; color: var(--muted); }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .btn-mini { padding: 6px 10px; border-radius: 8px; font-size: 12px; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
   </style>
 </head>
 <body>
+  <div class="page">
+    <header class="page-header">
+      <div>
+        <h1>flask-gpt-stack · 操作控制台</h1>
+        <p>统一入口：证书索引、知识库检索、评审索引生成与任务闭环。</p>
+      </div>
+      <div class="small">MVP 控制台</div>
+    </header>
 
-  <!-- ============ 索引搜索（证书库） ============ -->
-  <div class="card">
-    <h1>证书索引</h1>
-    <div class="muted">
-      提示：如果数据库里还没导入对应数据，搜索会返回空。
+    <!-- ============ 索引搜索（证书库） ============ -->
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h1>证书索引</h1>
+          <div class="muted">提示：如果数据库里还没导入对应数据，搜索会返回空。</div>
+        </div>
+        <div class="kv">total：<code id="searchTotal">0</code></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>关键词 q（模糊查询）</label>
+          <input id="searchQ" type="text" placeholder="例如：专利 / 营业执照 / 身份证正面" />
+        </div>
+
+        <div class="field">
+          <label>scope</label>
+          <select id="searchScope">
+            <option value="">ALL</option>
+            <option value="PERSON">PERSON</option>
+            <option value="COMPANY">COMPANY</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>doc_type_code（可选）</label>
+          <input id="searchDocTypeCode" type="text" placeholder="例如：patent / business_license" />
+        </div>
+
+        <div class="field">
+          <label>owner_id（可选）</label>
+          <input id="searchOwnerId" type="text" placeholder="限定某人/公司" />
+        </div>
+
+        <div class="field">
+          <label>valid_on（可选）</label>
+          <input id="searchValidOn" type="date" />
+        </div>
+
+        <div class="field">
+          <label>sort</label>
+          <select id="searchSort">
+            <option value="relevance_desc">relevance_desc</option>
+            <option value="created_at_desc">created_at_desc</option>
+            <option value="expires_at_asc">expires_at_asc</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>page_size</label>
+          <select id="searchPageSize">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>操作</label>
+          <div class="row">
+            <button id="btnSearch">搜索</button>
+            <button id="btnSearchReset" class="secondary">清空</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="small" id="searchReqUrl"></div>
+        <div class="row">
+          <button id="btnPrev" class="secondary">上一页</button>
+          <span class="kv">page：<code id="searchPage">1</code></span>
+          <button id="btnNext" class="secondary">下一页</button>
+        </div>
+      </div>
+
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">scope</th>
+              <th class="nowrap">owner_name</th>
+              <th class="nowrap">doc_type</th>
+              <th>cert_no / issuer</th>
+              <th class="nowrap">issued_at</th>
+              <th class="nowrap">expires_at</th>
+              <th class="nowrap">status</th>
+              <th>file</th>
+            </tr>
+          </thead>
+          <tbody id="searchTbody">
+            <tr><td colspan="8" class="muted">请先搜索</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <div class="muted">搜索日志</div>
+        <pre id="searchLog"></pre>
+      </div>
     </div>
 
-    <div class="hr"></div>
+    <!-- ============ 知识库检索与导出（离线切片后使用） ============ -->
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h1>知识库检索与导出</h1>
+          <div class="muted">
+            说明：招标文件已通过离线脚本切片入库（<span class="mono">kb_documents/kb_blocks</span>，切片文件落到 <span class="mono">storage/kb/blocks/</span>）。
+            <br/>这里支持：关键词检索（如“产品功能”）→ 返回相关内容 → 一键导出 Word（docx）。
+          </div>
+        </div>
+        <div class="kv">total：<code id="kbTotal">0</code></div>
+      </div>
 
-    <div class="row">
-      <div>
-        <label>关键词 q（模糊查询）</label><br/>
-        <input id="searchQ" type="text" placeholder="例如：专利 / 营业执照 / 身份证正面" />
+      <div class="form-grid">
+        <div class="field">
+          <label>关键词 query</label>
+          <input id="kbQuery" type="text" placeholder="例如：产品功能 / 技术方案 / 交付计划" />
+        </div>
+
+        <div class="field">
+          <label>tag（可选）</label>
+          <input id="kbTag" type="text" placeholder="例如：tender" />
+        </div>
+
+        <div class="field">
+          <label>标题关键词（可选，逗号分隔）</label>
+          <input id="kbTitleKeywords" type="text" placeholder="例如：功能,范围,需求" />
+        </div>
+
+        <div class="field">
+          <label>top_k（最多返回）</label>
+          <input id="kbTopK" type="number" value="50" min="1" max="500" />
+        </div>
+
+        <div class="field">
+          <label>page_size</label>
+          <select id="kbPageSize">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>操作</label>
+          <div class="row">
+            <button id="btnKbSearch">检索</button>
+            <button id="btnKbReset" class="secondary">清空</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>导出</label>
+          <button id="btnKbExport" class="secondary">导出当前检索结果（docx）</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="small" id="kbReqInfo"></div>
+        <div class="row">
+          <button id="btnKbPrev" class="secondary">上一页</button>
+          <span class="kv">page：<code id="kbPage">1</code></span>
+          <button id="btnKbNext" class="secondary">下一页</button>
+        </div>
+      </div>
+
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">score</th>
+              <th>section_title</th>
+              <th>content_text（预览）</th>
+              <th class="nowrap">操作</th>
+            </tr>
+          </thead>
+          <tbody id="kbTbody">
+            <tr><td colspan="4" class="muted">请先检索</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div>
-        <label>scope</label><br/>
-        <select id="searchScope">
-          <option value="">ALL</option>
-          <option value="PERSON">PERSON</option>
-          <option value="COMPANY">COMPANY</option>
-        </select>
+        <div class="muted">选中内容（完整）</div>
+        <pre id="kbPreview"></pre>
       </div>
 
       <div>
-        <label>doc_type_code（可选）</label><br/>
-        <input id="searchDocTypeCode" type="text" placeholder="例如：patent / business_license" />
-      </div>
-
-      <div>
-        <label>owner_id（可选）</label><br/>
-        <input id="searchOwnerId" type="text" placeholder="限定某人/公司" />
+        <div class="muted">知识库日志</div>
+        <pre id="kbLog"></pre>
       </div>
     </div>
 
-    <div class="row">
-      <div>
-        <label>valid_on（可选）</label><br/>
-        <input id="searchValidOn" type="date" />
+    <!-- ============ 一键生成：评审办法索引目录（模板评分大类 + result.xlsx 要求 + KB证据） ============ -->
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h1>一键生成评审办法索引</h1>
+          <div class="muted">先运行任务生成 <span class="mono">result.xlsx</span>，再填写 job_id 预览/生成。</div>
+        </div>
+        <div class="kv">requirements：<code id="riReqCount">0</code></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>job_id（默认使用下方任务区的 job_id）</label>
+          <input id="riJobId" type="text" placeholder="例如：xxxx-xxxx-xxxx" />
+        </div>
+
+        <div class="field">
+          <label>KB tag（可选）</label>
+          <input id="riKbTag" type="text" value="tender" placeholder="例如：tender" />
+        </div>
+
+        <div class="field">
+          <label>每个评分大类证据条数</label>
+          <input id="riTopN" type="number" value="3" min="1" max="10" />
+        </div>
+
+        <div class="field">
+          <label>模板路径（可选）</label>
+          <input id="riTemplatePath" type="text" value="storage/kb/templates/评分大类.docx" />
+        </div>
+
+        <div class="field">
+          <label>预览条数 limit</label>
+          <input id="riLimit" type="number" value="200" min="50" max="2000" />
+        </div>
+
+        <div class="field">
+          <label>操作</label>
+          <div class="row">
+            <button id="btnRiLoad">预览要求表</button>
+            <button id="btnRiGenerate" class="secondary">一键生成（docx）</button>
+          </div>
+        </div>
       </div>
 
       <div>
-        <label>sort</label><br/>
-        <select id="searchSort">
-          <option value="relevance_desc">relevance_desc</option>
-          <option value="created_at_desc">created_at_desc</option>
-          <option value="expires_at_asc">expires_at_asc</option>
-        </select>
+        <h2>招标文件要求表（category / item / value / source）预览</h2>
+        <div style="overflow:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th class="nowrap">category</th>
+                <th class="nowrap">item</th>
+                <th>value</th>
+                <th>source</th>
+              </tr>
+            </thead>
+            <tbody id="riReqTbody">
+              <tr><td colspan="4" class="muted">请先预览</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div>
-        <label>page_size</label><br/>
-        <select id="searchPageSize">
-          <option value="10">10</option>
-          <option value="20" selected>20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-      </div>
-
-      <div>
-        <button id="btnSearch">搜索</button>
-        <button id="btnSearchReset" class="secondary">清空</button>
-      </div>
-
-      <div class="kv">
-        total：<code id="searchTotal">0</code>
+        <div class="muted">生成日志</div>
+        <pre id="riLog"></pre>
       </div>
     </div>
 
-    <div class="row" style="justify-content: space-between;">
-      <div class="small" id="searchReqUrl"></div>
+    <!-- ============ 任务闭环（你已有） ============ -->
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h1>任务闭环（上传 → 选择脚本 → 创建任务 → 轮询 → 下载）</h1>
+          <div class="muted">上传 → 选择脚本 → 创建任务 → 进度轮询 → 下载 XLSX/JSON/DOCX</div>
+        </div>
+        <div class="kv">job_id：<code id="jobId">-</code></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>选择文件（仅 txt / docx，≤20MB）</label>
+          <input id="fileInput" type="file" accept=".txt,.docx" />
+        </div>
+        <div class="field">
+          <label>上传</label>
+          <button id="btnUpload">上传文件</button>
+        </div>
+        <div class="field">
+          <label>file_id</label>
+          <div class="kv"><code id="fileId">-</code></div>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>脚本选择</label>
+          <select id="scriptSelect">
+            <option value="">加载中...</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>模型 ID（MVP 任意字符串）</label>
+          <input id="modelInput" type="text" value="mock" />
+        </div>
+
+        <div class="field">
+          <label>操作</label>
+          <button id="btnCreateJob" disabled>创建任务</button>
+        </div>
+      </div>
+
+      <div class="statusline">
+        <span class="pill" id="pillStatus">status: -</span>
+        <span class="pill" id="pillStage">stage: -</span>
+        <span class="pill" id="pillProgress">progress: 0%</span>
+      </div>
+
+      <div>
+        <div class="progress-wrap">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </div>
+
       <div class="row">
-        <button id="btnPrev" class="secondary">上一页</button>
-        <span class="kv">page：<code id="searchPage">1</code></span>
-        <button id="btnNext" class="secondary">下一页</button>
+        <a id="btnDownloadXlsx" class="btnlink primary" href="#" style="display:none;">下载 result.xlsx</a>
+        <a id="btnDownloadJson" class="btnlink secondary" href="#" style="display:none;">下载 result.json</a>
+        <a id="btnDownloadDocx" class="btnlink secondary" href="#" style="display:none;">下载 result.docx</a>
+        <button id="btnReset" class="secondary">重置</button>
+      </div>
+
+      <div>
+        <div class="muted">任务列表</div>
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">job_id</th>
+              <th class="nowrap">status</th>
+              <th class="nowrap">artifact</th>
+            </tr>
+          </thead>
+          <tbody id="jobListTbody">
+            <tr><td colspan="3" class="muted">暂无任务</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <div class="muted">任务日志</div>
+        <pre id="log"></pre>
       </div>
     </div>
-
-    <div class="hr"></div>
-
-    <div style="overflow:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th class="nowrap">scope</th>
-            <th class="nowrap">owner_name</th>
-            <th class="nowrap">doc_type</th>
-            <th>cert_no / issuer</th>
-            <th class="nowrap">issued_at</th>
-            <th class="nowrap">expires_at</th>
-            <th class="nowrap">status</th>
-            <th>file</th>
-          </tr>
-        </thead>
-        <tbody id="searchTbody">
-          <tr><td colspan="8" class="muted">请先搜索</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="hr"></div>
-    <div class="muted">搜索日志</div>
-    <pre id="searchLog"></pre>
-  </div>
-
-  <!-- ============ 知识库检索与导出（离线切片后使用） ============ -->
-  <div class="card">
-    <h1>知识库检索与导出</h1>
-    <div class="muted">
-      说明：招标文件已通过离线脚本切片入库（<span class="mono">kb_documents/kb_blocks</span>，切片文件落到 <span class="mono">storage/kb/blocks/</span>）。
-      <br/>这里支持：关键词检索（如“产品功能”）→ 返回相关内容 → 一键导出 Word（docx）。
-    </div>
-
-    <div class="hr"></div>
-
-    <div class="row">
-      <div>
-        <label>关键词 query</label><br/>
-        <input id="kbQuery" type="text" placeholder="例如：产品功能 / 技术方案 / 交付计划" />
-      </div>
-
-      <div>
-        <label>tag（可选）</label><br/>
-        <input id="kbTag" type="text" placeholder="例如：tender" />
-      </div>
-
-      <div>
-        <label>标题关键词（可选，逗号分隔）</label><br/>
-        <input id="kbTitleKeywords" type="text" placeholder="例如：功能,范围,需求" />
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label>top_k（最多返回）</label><br/>
-        <input id="kbTopK" type="number" value="50" min="1" max="500" />
-      </div>
-
-      <div>
-        <label>page_size</label><br/>
-        <select id="kbPageSize">
-          <option value="10">10</option>
-          <option value="20" selected>20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-      </div>
-
-      <div>
-        <button id="btnKbSearch">检索</button>
-        <button id="btnKbReset" class="secondary">清空</button>
-      </div>
-
-      <div>
-        <button id="btnKbExport" class="secondary">导出当前检索结果（docx）</button>
-      </div>
-
-      <div class="kv">
-        total：<code id="kbTotal">0</code>
-      </div>
-    </div>
-
-    <div class="row" style="justify-content: space-between;">
-      <div class="small" id="kbReqInfo"></div>
-      <div class="row">
-        <button id="btnKbPrev" class="secondary">上一页</button>
-        <span class="kv">page：<code id="kbPage">1</code></span>
-        <button id="btnKbNext" class="secondary">下一页</button>
-      </div>
-    </div>
-
-    <div class="hr"></div>
-
-    <div style="overflow:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th class="nowrap">score</th>
-            <th>section_title</th>
-            <th>content_text（预览）</th>
-            <th class="nowrap">操作</th>
-          </tr>
-        </thead>
-        <tbody id="kbTbody">
-          <tr><td colspan="4" class="muted">请先检索</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="hr"></div>
-    <div class="muted">选中内容（完整）</div>
-    <pre id="kbPreview"></pre>
-
-    <div class="hr"></div>
-    <div class="muted">知识库日志</div>
-    <pre id="kbLog"></pre>
-  </div>
-
-  <!-- ============ 一键生成：评审办法索引目录（模板评分大类 + result.xlsx 要求 + KB证据） ============ -->
-  <div class="card">
-    <h1>一键生成评审办法索引</h1>
-<!--    <div class="muted">-->
-<!--      <br/>用法：先运行“提取招标要求”的任务得到 <span class="mono">result.xlsx</span> → 填 job_id（或直接用下方任务区的 job_id）→ 点“预览要求表”→ 点“一键生成”下载。-->
-<!--    </div>-->
-
-    <div class="hr"></div>
-
-    <div class="row">
-      <div>
-        <label>job_id（默认使用下方任务区的 job_id）</label><br/>
-        <input id="riJobId" type="text" placeholder="例如：xxxx-xxxx-xxxx" />
-      </div>
-
-      <div>
-        <label>KB tag（可选）</label><br/>
-        <input id="riKbTag" type="text" value="tender" placeholder="例如：tender" />
-      </div>
-
-      <div>
-        <label>每个评分大类证据条数</label><br/>
-        <input id="riTopN" type="number" value="3" min="1" max="10" />
-      </div>
-
-      <div>
-        <label>模板路径（可选）</label><br/>
-        <input id="riTemplatePath" type="text" value="storage/kb/templates/评分大类.docx" />
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label>预览条数 limit</label><br/>
-        <input id="riLimit" type="number" value="200" min="50" max="2000" />
-      </div>
-
-      <div>
-        <button id="btnRiLoad">预览要求表（从 result.xlsx）</button>
-        <button id="btnRiGenerate" class="secondary">一键生成评审办法索引目录（docx）</button>
-      </div>
-
-      <div class="kv">
-        requirements：<code id="riReqCount">0</code>
-      </div>
-    </div>
-
-    <div class="hr"></div>
-
-    <h2>招标文件要求表（category / item / value / source）预览</h2>
-    <div style="overflow:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th class="nowrap">category</th>
-            <th class="nowrap">item</th>
-            <th>value</th>
-            <th>source</th>
-          </tr>
-        </thead>
-        <tbody id="riReqTbody">
-          <tr><td colspan="4" class="muted">请先预览</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="hr"></div>
-    <div class="muted">生成日志</div>
-    <pre id="riLog"></pre>
-  </div>
-
-  <!-- ============ 任务闭环（你已有） ============ -->
-  <div class="card">
-    <h1>任务闭环（上传 → 选择脚本 → 创建任务 → 轮询 → 下载）</h1>
-    <div class="muted">上传 → 选择脚本 → 创建任务 → 进度轮询 → 下载 XLSX/JSON/DOCX</div>
-
-    <div class="hr"></div>
-
-    <!-- Upload -->
-    <div class="row">
-      <div>
-        <label>选择文件（仅 txt / docx，≤20MB）</label><br />
-        <input id="fileInput" type="file" accept=".txt,.docx" />
-      </div>
-      <div>
-        <button id="btnUpload">上传文件</button>
-      </div>
-      <div class="kv">
-        file_id：<code id="fileId">-</code>
-      </div>
-    </div>
-
-    <div class="hr"></div>
-
-    <!-- Script + Model -->
-    <div class="row">
-      <div>
-        <label>脚本选择</label><br />
-        <select id="scriptSelect">
-          <option value="">加载中...</option>
-        </select>
-      </div>
-
-      <div>
-        <label>模型 ID（MVP 任意字符串）</label><br />
-        <input id="modelInput" type="text" value="mock" />
-      </div>
-
-      <div>
-        <button id="btnCreateJob" disabled>创建任务</button>
-      </div>
-
-      <div class="kv">
-        job_id：<code id="jobId">-</code>
-      </div>
-    </div>
-
-    <div class="hr"></div>
-
-    <!-- Progress -->
-    <div class="statusline">
-      <span class="pill" id="pillStatus">status: -</span>
-      <span class="pill" id="pillStage">stage: -</span>
-      <span class="pill" id="pillProgress">progress: 0%</span>
-    </div>
-
-    <div style="margin-top:10px;">
-      <div class="progress-wrap">
-        <div id="progressBar" class="progress-bar"></div>
-      </div>
-    </div>
-
-    <div class="row" style="margin-top:12px;">
-      <a id="btnDownloadXlsx" class="btnlink primary" href="#" style="display:none;">下载 result.xlsx</a>
-      <a id="btnDownloadJson" class="btnlink secondary" href="#" style="display:none;">下载 result.json</a>
-      <a id="btnDownloadDocx" class="btnlink secondary" href="#" style="display:none;">下载 result.docx</a>
-      <button id="btnReset" class="secondary">重置</button>
-    </div>
-
-    <div class="hr"></div>
-
-    <div class="muted">任务列表</div>
-    <table>
-      <thead>
-        <tr>
-          <th class="nowrap">job_id</th>
-          <th class="nowrap">status</th>
-          <th class="nowrap">artifact</th>
-        </tr>
-      </thead>
-      <tbody id="jobListTbody">
-        <tr><td colspan="3" class="muted">暂无任务</td></tr>
-      </tbody>
-    </table>
-
-    <div class="hr"></div>
-
-    <div class="muted">任务日志</div>
-    <pre id="log"></pre>
   </div>
 
 <script>
