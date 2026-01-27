@@ -197,7 +197,6 @@ def search_index(params: IndexSearchParams) -> Dict[str, Any]:
                         "mime_type": sf.mime_type,
                         "size_bytes": int(sf.size_bytes),
                         "storage_rel_path": sf.storage_rel_path,
-                        "preview_url": f"/api/v1/certs/files/{sf.id}/preview",
                         "download_url": f"/api/v1/certs/files/{sf.id}/download",
                     },
                 }

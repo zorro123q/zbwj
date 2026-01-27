@@ -197,16 +197,6 @@
         </div>
 
         <div class="field">
-          <label>page_size</label>
-          <select id="searchPageSize">
-            <option value="10">10</option>
-            <option value="20" selected>20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-
-        <div class="field">
           <label>操作</label>
           <div class="row">
             <button id="btnSearch">搜索</button>
@@ -228,18 +218,11 @@
         <table>
           <thead>
             <tr>
-              <th class="nowrap">scope</th>
-              <th class="nowrap">owner_name</th>
-              <th class="nowrap">doc_type</th>
-              <th>cert_no / issuer</th>
-              <th class="nowrap">issued_at</th>
-              <th class="nowrap">expires_at</th>
-              <th class="nowrap">status</th>
               <th>file</th>
             </tr>
           </thead>
           <tbody id="searchTbody">
-            <tr><td colspan="8" class="muted">请先搜索</td></tr>
+            <tr><td colspan="1" class="muted">请先搜索</td></tr>
           </tbody>
         </table>
       </div>
@@ -247,6 +230,121 @@
       <div>
         <div class="muted">搜索日志</div>
         <pre id="searchLog"></pre>
+      </div>
+    </div>
+
+    <!-- ============ 证件管理（CRUD） ============ -->
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h1>证件管理</h1>
+          <div class="muted">支持证件新增、修改、删除与列表分页。</div>
+        </div>
+        <div class="kv">total：<code id="certTotal">0</code></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>evidence_id（修改/删除）</label>
+          <input id="certEvidenceId" type="text" placeholder="证件ID" />
+        </div>
+
+        <div class="field">
+          <label>scope</label>
+          <select id="certScope">
+            <option value="PERSON">PERSON</option>
+            <option value="COMPANY">COMPANY</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>owner_id</label>
+          <input id="certOwnerId" type="text" placeholder="所属人/公司ID" />
+        </div>
+
+        <div class="field">
+          <label>doc_type_code</label>
+          <input id="certDocTypeCode" type="text" placeholder="证件类型编码" />
+        </div>
+
+        <div class="field">
+          <label>cert_no</label>
+          <input id="certNo" type="text" placeholder="证件号" />
+        </div>
+
+        <div class="field">
+          <label>issuer</label>
+          <input id="certIssuer" type="text" placeholder="签发机构" />
+        </div>
+
+        <div class="field">
+          <label>issued_at</label>
+          <input id="certIssuedAt" type="date" />
+        </div>
+
+        <div class="field">
+          <label>expires_at</label>
+          <input id="certExpiresAt" type="date" />
+        </div>
+
+        <div class="field">
+          <label>status</label>
+          <select id="certStatus">
+            <option value="UNKNOWN">UNKNOWN</option>
+            <option value="VALID">VALID</option>
+            <option value="EXPIRED">EXPIRED</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>tags</label>
+          <input id="certTags" type="text" placeholder="标签（可选）" />
+        </div>
+
+        <div class="field">
+          <label>file</label>
+          <input id="certFile" type="file" />
+        </div>
+
+        <div class="field">
+          <label>操作</label>
+          <div class="row">
+            <button id="btnCertCreate">新增</button>
+            <button id="btnCertUpdate" class="secondary">修改</button>
+            <button id="btnCertDelete" class="secondary">删除</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="small" id="certReqUrl"></div>
+        <div class="row">
+          <button id="certPrev" class="secondary">上一页</button>
+          <span class="kv">page：<code id="certPage">1</code></span>
+          <button id="certNext" class="secondary">下一页</button>
+        </div>
+      </div>
+
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">evidence_id</th>
+              <th class="nowrap">owner</th>
+              <th class="nowrap">doc_type</th>
+              <th class="nowrap">status</th>
+              <th>file</th>
+            </tr>
+          </thead>
+          <tbody id="certTbody">
+            <tr><td colspan="5" class="muted">暂无数据</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <div class="muted">操作日志</div>
+        <pre id="certLog"></pre>
       </div>
     </div>
 
@@ -532,7 +630,6 @@
   const searchOwnerId = el("searchOwnerId");
   const searchValidOn = el("searchValidOn");
   const searchSort = el("searchSort");
-  const searchPageSize = el("searchPageSize");
 
   const btnSearch = el("btnSearch");
   const btnSearchReset = el("btnSearchReset");
@@ -545,6 +642,7 @@
   const searchTbody = el("searchTbody");
   const searchLog = el("searchLog");
 
+  const searchPageSize = 5;
   let searchState = { page: 1, total: 0 };
 
   function slog(msg) {
@@ -573,8 +671,7 @@
     const sortv = (searchSort.value || "relevance_desc").trim();
     if (sortv) params.set("sort", sortv);
 
-    const ps = parseInt(searchPageSize.value || "20", 10);
-    params.set("page_size", String(ps));
+    params.set("page_size", String(searchPageSize));
     params.set("page", String(page));
 
     return "/api/v1/index/search?" + params.toString();
@@ -582,38 +679,21 @@
 
   function renderIndexItems(items) {
     if (!items || items.length === 0) {
-      searchTbody.innerHTML = `<tr><td colspan="8" class="muted">无结果</td></tr>`;
+      searchTbody.innerHTML = `<tr><td colspan="1" class="muted">无结果</td></tr>`;
       return;
     }
 
     const rows = items.map(it => {
       const file = it.file || {};
-      const cert = it.cert_no || "";
-      const issuer = it.issuer || "";
-
       const fileInfo = `
         <div><b>${escapeHtml(file.original_name || "")}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
-        ${file.preview_url ? `<div class="mt-6"><img src="${file.preview_url}" alt="cert" style="max-width:160px; max-height:120px; border:1px solid #e5e7eb; border-radius:6px;" /></div>` : ""}
         ${file.download_url ? `<div class="mt-6"><a href="${file.download_url}" download>下载图片</a></div>` : ""}
       `;
 
       return `
         <tr>
-          <td class="nowrap">${escapeHtml(it.scope)}</td>
-          <td class="nowrap">${escapeHtml(it.owner_name || "")}</td>
-          <td>
-            <div><b>${escapeHtml(it.doc_type_name || "")}</b></div>
-            <div class="small">${escapeHtml(it.doc_type_code || "")}</div>
-          </td>
-          <td>
-            <div><b>cert_no</b>: ${escapeHtml(cert)}</div>
-            <div><b>issuer</b>: ${escapeHtml(issuer)}</div>
-          </td>
-          <td class="nowrap">${escapeHtml(it.issued_at || "")}</td>
-          <td class="nowrap">${escapeHtml(it.expires_at || "")}</td>
-          <td class="nowrap">${escapeHtml(it.status || "")}</td>
           <td>${fileInfo}</td>
         </tr>
       `;
@@ -641,13 +721,12 @@
 
       renderIndexItems(data.items || []);
 
-      const ps = parseInt(searchPageSize.value || "20", 10);
       btnPrev.disabled = (searchState.page <= 1);
-      btnNext.disabled = (searchState.page * ps >= searchState.total);
+      btnNext.disabled = (searchState.page * searchPageSize >= searchState.total);
 
     } catch (e) {
       slog("error: " + (e.message || e));
-      searchTbody.innerHTML = `<tr><td colspan="8" class="muted">查询失败：${escapeHtml(e.message || e)}</td></tr>`;
+      searchTbody.innerHTML = `<tr><td colspan="1" class="muted">查询失败：${escapeHtml(e.message || e)}</td></tr>`;
     } finally {
       btnSearch.disabled = false;
     }
@@ -664,19 +743,209 @@
     searchOwnerId.value = "";
     searchValidOn.value = "";
     searchSort.value = "relevance_desc";
-    searchPageSize.value = "20";
     searchState.page = 1;
     searchState.total = 0;
     searchPage.textContent = "1";
     searchTotal.textContent = "0";
     searchReqUrl.textContent = "";
     searchLog.textContent = "";
-    searchTbody.innerHTML = `<tr><td colspan="8" class="muted">请先搜索</td></tr>`;
+    searchTbody.innerHTML = `<tr><td colspan="1" class="muted">请先搜索</td></tr>`;
   });
 
   searchQ.addEventListener("keydown", (e) => {
     if (e.key === "Enter") doIndexSearch(1);
   });
+
+  // =======================
+  // 1.5) 证件管理 CRUD
+  // =======================
+  const certEvidenceId = el("certEvidenceId");
+  const certScope = el("certScope");
+  const certOwnerId = el("certOwnerId");
+  const certDocTypeCode = el("certDocTypeCode");
+  const certNo = el("certNo");
+  const certIssuer = el("certIssuer");
+  const certIssuedAt = el("certIssuedAt");
+  const certExpiresAt = el("certExpiresAt");
+  const certStatus = el("certStatus");
+  const certTags = el("certTags");
+  const certFile = el("certFile");
+
+  const btnCertCreate = el("btnCertCreate");
+  const btnCertUpdate = el("btnCertUpdate");
+  const btnCertDelete = el("btnCertDelete");
+  const certPrev = el("certPrev");
+  const certNext = el("certNext");
+  const certPage = el("certPage");
+  const certTotal = el("certTotal");
+  const certReqUrl = el("certReqUrl");
+  const certTbody = el("certTbody");
+  const certLog = el("certLog");
+
+  const certPageSize = 5;
+  let certState = { page: 1, total: 0 };
+
+  function certLogLine(msg) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    certLog.textContent = (certLog.textContent ? (certLog.textContent + "\n") : "") + line;
+    certLog.scrollTop = certLog.scrollHeight;
+  }
+
+  function buildCertListUrl(page) {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("page_size", String(certPageSize));
+    return "/api/v1/certs?" + params.toString();
+  }
+
+  function renderCertList(items) {
+    if (!items || items.length === 0) {
+      certTbody.innerHTML = `<tr><td colspan="5" class="muted">暂无数据</td></tr>`;
+      return;
+    }
+
+    const rows = items.map(it => {
+      const file = it.file || {};
+      const fileInfo = `
+        <div><b>${escapeHtml(file.original_name || "")}</b></div>
+        <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
+        <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
+        ${file.download_url ? `<div class="mt-6"><a href="${file.download_url}" download>下载图片</a></div>` : ""}
+      `;
+
+      return `
+        <tr>
+          <td class="nowrap">${escapeHtml(it.evidence_id || "")}</td>
+          <td class="nowrap">${escapeHtml(it.owner_name || it.owner_id || "")}</td>
+          <td>
+            <div><b>${escapeHtml(it.doc_type_name || "")}</b></div>
+            <div class="small">${escapeHtml(it.doc_type_code || "")}</div>
+          </td>
+          <td class="nowrap">${escapeHtml(it.status || "")}</td>
+          <td>${fileInfo}</td>
+        </tr>
+      `;
+    }).join("");
+
+    certTbody.innerHTML = rows;
+  }
+
+  async function fetchCertList(page) {
+    const url = buildCertListUrl(page);
+    certReqUrl.textContent = "GET " + url;
+    certLogLine("list: " + url);
+
+    try {
+      const resp = await fetch(url, { method: "GET" });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+
+      certState.page = data.page || page;
+      certState.total = data.total || 0;
+      certPage.textContent = String(certState.page);
+      certTotal.textContent = String(certState.total);
+      renderCertList(data.items || []);
+
+      certPrev.disabled = (certState.page <= 1);
+      certNext.disabled = (certState.page * certPageSize >= certState.total);
+    } catch (e) {
+      certLogLine("error: " + (e.message || e));
+      certTbody.innerHTML = `<tr><td colspan="5" class="muted">获取失败：${escapeHtml(e.message || e)}</td></tr>`;
+    }
+  }
+
+  function buildCertFormData({ includeFile, includeEmpty }) {
+    const fd = new FormData();
+    const payload = {
+      scope: certScope.value,
+      owner_id: certOwnerId.value,
+      doc_type_code: certDocTypeCode.value,
+      cert_no: certNo.value,
+      issuer: certIssuer.value,
+      issued_at: certIssuedAt.value,
+      expires_at: certExpiresAt.value,
+      status: certStatus.value,
+      tags: certTags.value,
+    };
+
+    Object.entries(payload).forEach(([key, value]) => {
+      const val = (value || "").trim();
+      if (includeEmpty || val) {
+        fd.append(key, val);
+      }
+    });
+
+    if (includeFile && certFile.files && certFile.files[0]) {
+      fd.append("file", certFile.files[0]);
+    }
+    return fd;
+  }
+
+  btnCertCreate.addEventListener("click", async () => {
+    if (!certFile.files || !certFile.files[0]) {
+      certLogLine("error: 新增需要选择文件");
+      return;
+    }
+
+    try {
+      const resp = await fetch("/api/v1/certs", {
+        method: "POST",
+        body: buildCertFormData({ includeFile: true, includeEmpty: true }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+      certLogLine(`created: ${data.evidence_id || ""}`);
+      fetchCertList(1);
+    } catch (e) {
+      certLogLine("error: " + (e.message || e));
+    }
+  });
+
+  btnCertUpdate.addEventListener("click", async () => {
+    const evidenceId = (certEvidenceId.value || "").trim();
+    if (!evidenceId) {
+      certLogLine("error: 请输入 evidence_id");
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/v1/certs/${encodeURIComponent(evidenceId)}`, {
+        method: "PUT",
+        body: buildCertFormData({ includeFile: true, includeEmpty: false }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+      certLogLine(`updated: ${evidenceId}`);
+      fetchCertList(certState.page);
+    } catch (e) {
+      certLogLine("error: " + (e.message || e));
+    }
+  });
+
+  btnCertDelete.addEventListener("click", async () => {
+    const evidenceId = (certEvidenceId.value || "").trim();
+    if (!evidenceId) {
+      certLogLine("error: 请输入 evidence_id");
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/v1/certs/${encodeURIComponent(evidenceId)}`, {
+        method: "DELETE",
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+      certLogLine(`deleted: ${evidenceId}`);
+      fetchCertList(1);
+    } catch (e) {
+      certLogLine("error: " + (e.message || e));
+    }
+  });
+
+  certPrev.addEventListener("click", () => fetchCertList(Math.max(1, certState.page - 1)));
+  certNext.addEventListener("click", () => fetchCertList(certState.page + 1));
+
+  fetchCertList(1);
 
   // =======================
   // 2) KB Search + Export
