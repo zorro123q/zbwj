@@ -321,7 +321,7 @@
             <div class="form-grid">
               <div class="field">
                 <label>证件名称</label>
-                <input id="companyCertName" type="text" placeholder="例如：营业执照" />
+                <input id="companyCertName" type="text" placeholder="例如：ISO9001 质量管理体系认证证书_01.png" />
               </div>
               <div class="field">
                 <label>证书类型（自动识别）</label>
@@ -332,10 +332,6 @@
                   <option value="patent">patent</option>
                   <option value="qualification">qualification</option>
                 </select>
-              </div>
-              <div class="field">
-                <label>公司ID</label>
-                <input id="companyOwnerId" type="text" placeholder="公司 owner_id" />
               </div>
               <div class="field">
                 <label>上传图片</label>
@@ -355,8 +351,12 @@
             <h3>人员信息新增</h3>
             <div class="form-grid">
               <div class="field">
+                <label>人员名称</label>
+                <input id="personName" type="text" placeholder="例如：武全胜" />
+              </div>
+              <div class="field">
                 <label>证件名称</label>
-                <input id="personCertName" type="text" placeholder="例如：身份证" />
+                <input id="personCertName" type="text" placeholder="例如：高级信息系统项目管理师-武全胜.png" />
               </div>
               <div class="field">
                 <label>证书类型（自动识别）</label>
@@ -366,10 +366,6 @@
                   <option value="diploma">diploma</option>
                   <option value="license">license</option>
                 </select>
-              </div>
-              <div class="field">
-                <label>人员ID</label>
-                <input id="personOwnerId" type="text" placeholder="人员 owner_id" />
               </div>
               <div class="field">
                 <label>上传图片</label>
@@ -710,8 +706,9 @@
 
     const rows = items.map(it => {
       const file = it.file || {};
+      const certName = it.cert_no || "";
       const fileInfo = `
-        <div><b>${escapeHtml(file.original_name || "")}</b></div>
+        <div><b>${escapeHtml(certName)}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
       `;
@@ -795,13 +792,12 @@
   const certSelectedLabel = el("certSelectedLabel");
   const companyCertName = el("companyCertName");
   const companyCertType = el("companyCertType");
-  const companyOwnerId = el("companyOwnerId");
   const companyCertFile = el("companyCertFile");
   const btnCompanyCertCreate = el("btnCompanyCertCreate");
   const btnCompanyCertUpdate = el("btnCompanyCertUpdate");
+  const personName = el("personName");
   const personCertName = el("personCertName");
   const personCertType = el("personCertType");
-  const personOwnerId = el("personOwnerId");
   const personCertFile = el("personCertFile");
   const btnPersonCertCreate = el("btnPersonCertCreate");
   const btnPersonCertUpdate = el("btnPersonCertUpdate");
@@ -858,7 +854,9 @@
 
     const rows = items.map(it => {
       const file = it.file || {};
+      const certName = it.cert_no || "";
       const fileInfo = `
+        <div><b>${escapeHtml(certName)}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
       `;
@@ -930,33 +928,34 @@
   function fillModalFromSelection(data) {
     if (!data) return;
     if (data.scope === "COMPANY") {
-      companyOwnerId.value = data.owner_id || "";
-      companyCertName.value = data.doc_type_name || "";
+      companyCertName.value = data.cert_no || data.doc_type_name || "";
       companyCertType.value = data.doc_type_code || "";
-      personOwnerId.value = "";
+      personName.value = "";
+      personCertName.value = "";
+      personCertType.value = "";
     } else {
-      personOwnerId.value = data.owner_id || "";
-      personCertName.value = data.doc_type_name || "";
+      personName.value = data.owner_name || "";
+      personCertName.value = data.cert_no || data.doc_type_name || "";
       personCertType.value = data.doc_type_code || "";
-      companyOwnerId.value = "";
+      companyCertName.value = "";
+      companyCertType.value = "";
     }
   }
 
   function resetCreateForm() {
     companyCertName.value = "";
     companyCertType.value = "";
-    companyOwnerId.value = "";
     if (companyCertFile) companyCertFile.value = "";
+    personName.value = "";
     personCertName.value = "";
     personCertType.value = "";
-    personOwnerId.value = "";
     if (personCertFile) personCertFile.value = "";
   }
 
-  function buildCreateFormData({ scope, ownerId, docTypeCode, certName, fileInput }) {
+  function buildCreateFormData({ scope, ownerName, docTypeCode, certName, fileInput }) {
     const fd = new FormData();
     fd.append("scope", scope);
-    fd.append("owner_id", ownerId || "");
+    fd.append("owner_name", ownerName || "");
     fd.append("doc_type_code", docTypeCode || "");
     fd.append("cert_no", certName || "");
     if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -965,9 +964,9 @@
     return fd;
   }
 
-  function buildUpdateFormData({ ownerId, docTypeCode, certName, fileInput }) {
+  function buildUpdateFormData({ ownerName, docTypeCode, certName, fileInput }) {
     const fd = new FormData();
-    if (ownerId) fd.append("owner_id", ownerId);
+    if (ownerName) fd.append("owner_name", ownerName);
     if (docTypeCode) fd.append("doc_type_code", docTypeCode);
     if (certName) fd.append("cert_no", certName);
     if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -998,10 +997,6 @@
   });
 
   btnCompanyCertCreate.addEventListener("click", async () => {
-    if (!companyOwnerId.value) {
-      certLogLine("error: 请填写公司ID");
-      return;
-    }
     if (!companyCertType.value) {
       certLogLine("error: 请填写证书类型");
       return;
@@ -1016,7 +1011,7 @@
         method: "POST",
         body: buildCreateFormData({
           scope: "COMPANY",
-          ownerId: companyOwnerId.value,
+          ownerName: companyCertName.value || "未命名公司",
           docTypeCode: companyCertType.value,
           certName: companyCertName.value,
           fileInput: companyCertFile,
@@ -1033,8 +1028,8 @@
   });
 
   btnPersonCertCreate.addEventListener("click", async () => {
-    if (!personOwnerId.value) {
-      certLogLine("error: 请填写人员ID");
+    if (!personName.value) {
+      certLogLine("error: 请填写人员名称");
       return;
     }
     if (!personCertType.value) {
@@ -1051,7 +1046,7 @@
         method: "POST",
         body: buildCreateFormData({
           scope: "PERSON",
-          ownerId: personOwnerId.value,
+          ownerName: personName.value,
           docTypeCode: personCertType.value,
           certName: personCertName.value,
           fileInput: personCertFile,
@@ -1076,7 +1071,7 @@
       const resp = await fetch(`/api/v1/certs/${encodeURIComponent(selectedCert.evidence_id)}`, {
         method: "PUT",
         body: buildUpdateFormData({
-          ownerId: companyOwnerId.value,
+          ownerName: selectedCert.owner_name,
           docTypeCode: companyCertType.value,
           certName: companyCertName.value,
           fileInput: companyCertFile,
@@ -1101,7 +1096,7 @@
       const resp = await fetch(`/api/v1/certs/${encodeURIComponent(selectedCert.evidence_id)}`, {
         method: "PUT",
         body: buildUpdateFormData({
-          ownerId: personOwnerId.value,
+          ownerName: personName.value,
           docTypeCode: personCertType.value,
           certName: personCertName.value,
           fileInput: personCertFile,

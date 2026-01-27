@@ -1,4 +1,5 @@
 from datetime import datetime
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -49,6 +50,41 @@ def _parse_date(raw: Optional[str]) -> Optional[datetime]:
 
 def _evidence_owner_name(evidence: Evidence, person_name: Optional[str], company_name: Optional[str]) -> Optional[str]:
     return person_name if evidence.scope == "PERSON" else company_name
+
+
+def _ensure_owner(scope: str, owner_id: Optional[str], owner_name: Optional[str]) -> str:
+    scoped = (scope or "").strip().upper()
+    if scoped not in ("PERSON", "COMPANY"):
+        raise ValueError("scope must be PERSON or COMPANY")
+
+    owner_id = (owner_id or "").strip()
+    owner_name = (owner_name or "").strip()
+
+    if owner_id:
+        model = Person if scoped == "PERSON" else Company
+        if db.session.get(model, owner_id) is None:
+            raise ValueError("owner_id not found")
+        return owner_id
+
+    if not owner_name:
+        raise ValueError("owner_name is required when owner_id is empty")
+
+    if scoped == "PERSON":
+        existing = db.session.query(Person).filter(Person.name == owner_name).first()
+        if existing:
+            return existing.id
+        new_id = str(uuid.uuid4())
+        db.session.add(Person(id=new_id, name=owner_name))
+        db.session.commit()
+        return new_id
+
+    existing = db.session.query(Company).filter(Company.name == owner_name).first()
+    if existing:
+        return existing.id
+    new_id = str(uuid.uuid4())
+    db.session.add(Company(id=new_id, name=owner_name))
+    db.session.commit()
+    return new_id
 
 
 def _evidence_to_dict(evidence: Evidence, doc_type: DocumentType, stored: StoredFile, owner_name: Optional[str]) -> Dict[str, Any]:
@@ -159,13 +195,18 @@ def create_cert():
     data = request.form or {}
     scope = data.get("scope")
     owner_id = data.get("owner_id")
+    owner_name = data.get("owner_name") or data.get("cert_no")
     doc_type_code = data.get("doc_type_code")
 
     try:
+        owner_id = _ensure_owner(scope, owner_id, owner_name)
         issued_at = _parse_date(data.get("issued_at"))
         expires_at = _parse_date(data.get("expires_at"))
-    except ValueError:
-        return jsonify(error="bad_request", message="issued_at/expires_at must be YYYY-MM-DD"), 400
+    except ValueError as exc:
+        msg = str(exc)
+        if "YYYY-MM-DD" in msg:
+            return jsonify(error="bad_request", message="issued_at/expires_at must be YYYY-MM-DD"), 400
+        return jsonify(error="bad_request", message=msg), 400
 
     try:
         result = save_image(
@@ -257,6 +298,7 @@ def update_cert(evidence_id: str):
         evidence.expires_at = expires_at
 
     owner_id = (data.get("owner_id") or "").strip() if "owner_id" in data else None
+    owner_name = (data.get("owner_name") or "").strip() if "owner_name" in data else None
     if owner_id is not None:
         if evidence.scope == "PERSON":
             if db.session.get(Person, owner_id) is None:
@@ -265,6 +307,19 @@ def update_cert(evidence_id: str):
             if db.session.get(Company, owner_id) is None:
                 return jsonify(error="bad_request", message="owner_id not found"), 400
         evidence.owner_id = owner_id
+    if owner_name is not None:
+        if not owner_name:
+            return jsonify(error="bad_request", message="owner_name is required"), 400
+        if evidence.scope == "PERSON":
+            person = db.session.get(Person, evidence.owner_id)
+            if person is None:
+                return jsonify(error="bad_request", message="owner_id not found"), 400
+            person.name = owner_name
+        else:
+            company = db.session.get(Company, evidence.owner_id)
+            if company is None:
+                return jsonify(error="bad_request", message="owner_id not found"), 400
+            company.name = owner_name
 
     current_dt = db.session.get(DocumentType, evidence.document_type_id)
     if current_dt is None:
