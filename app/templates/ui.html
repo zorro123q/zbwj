@@ -124,6 +124,7 @@
     .small { font-size: 12px; color: var(--muted); }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .btn-mini { padding: 6px 10px; border-radius: 8px; font-size: 12px; }
+    .hidden { display: none; }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -134,6 +135,42 @@
       border: 1px dashed var(--line);
       border-radius: 12px;
       padding: 10px 12px;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.hidden {
+      display: none;
+    }
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+    }
+    .modal-card {
+      position: relative;
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      width: min(980px, 92vw);
+      max-height: 90vh;
+      overflow: auto;
+      z-index: 1;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .inner-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
     }
   </style>
 </head>
@@ -221,72 +258,14 @@
 
       <div class="form-grid">
         <div class="field">
-          <label>evidence_id（修改/删除）</label>
-          <input id="certEvidenceId" type="text" placeholder="证件ID" />
-        </div>
-
-        <div class="field">
-          <label>scope</label>
-          <select id="certScope">
-            <option value="PERSON">PERSON</option>
-            <option value="COMPANY">COMPANY</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>owner_id</label>
-          <input id="certOwnerId" type="text" placeholder="所属人/公司ID" />
-        </div>
-
-        <div class="field">
-          <label>doc_type_code</label>
-          <input id="certDocTypeCode" type="text" placeholder="证件类型编码" />
-        </div>
-
-        <div class="field">
-          <label>cert_no</label>
-          <input id="certNo" type="text" placeholder="证件号" />
-        </div>
-
-        <div class="field">
-          <label>issuer</label>
-          <input id="certIssuer" type="text" placeholder="签发机构" />
-        </div>
-
-        <div class="field">
-          <label>issued_at</label>
-          <input id="certIssuedAt" type="date" />
-        </div>
-
-        <div class="field">
-          <label>expires_at</label>
-          <input id="certExpiresAt" type="date" />
-        </div>
-
-        <div class="field">
-          <label>status</label>
-          <select id="certStatus">
-            <option value="UNKNOWN">UNKNOWN</option>
-            <option value="VALID">VALID</option>
-            <option value="EXPIRED">EXPIRED</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>tags</label>
-          <input id="certTags" type="text" placeholder="标签（可选）" />
-        </div>
-
-        <div class="field">
-          <label>file</label>
-          <input id="certFile" type="file" />
+          <label>选中证件（点击表格行）</label>
+          <input id="certEvidenceId" type="text" placeholder="证件ID" readonly />
         </div>
 
         <div class="field">
           <label>操作</label>
           <div class="row">
-            <button id="btnCertCreate">新增</button>
-            <button id="btnCertUpdate" class="secondary">修改</button>
+            <button id="btnCertOpenCreate">新增</button>
             <button id="btnCertDelete" class="secondary">删除</button>
           </div>
         </div>
@@ -321,6 +300,93 @@
       <div>
         <div class="muted">操作日志</div>
         <pre id="certLog"></pre>
+      </div>
+    </div>
+
+    <div id="certCreateModal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card">
+        <div class="section-title">
+          <div>
+            <h2>新增证件</h2>
+            <div class="muted">公司证书 / 人员信息</div>
+            <div class="small">当前选中：<span id="certSelectedLabel">未选择</span></div>
+          </div>
+          <button id="btnCertCloseCreate" class="secondary">关闭</button>
+        </div>
+
+        <div class="two-col">
+          <div class="card inner-card">
+            <h3>公司证书新增</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label>证件名称</label>
+                <input id="companyCertName" type="text" placeholder="例如：营业执照" />
+              </div>
+              <div class="field">
+                <label>证书类型（自动识别）</label>
+                <select id="companyCertType">
+                  <option value="">请选择</option>
+                  <option value="business_license">business_license</option>
+                  <option value="tax_certificate">tax_certificate</option>
+                  <option value="patent">patent</option>
+                  <option value="qualification">qualification</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>公司ID</label>
+                <input id="companyOwnerId" type="text" placeholder="公司 owner_id" />
+              </div>
+              <div class="field">
+                <label>上传图片</label>
+                <input id="companyCertFile" type="file" />
+              </div>
+              <div class="field">
+                <label>操作</label>
+                <div class="row">
+                  <button id="btnCompanyCertCreate">新增公司证书</button>
+                  <button id="btnCompanyCertUpdate" class="secondary hidden">保存公司修改</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card inner-card">
+            <h3>人员信息新增</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label>证件名称</label>
+                <input id="personCertName" type="text" placeholder="例如：身份证" />
+              </div>
+              <div class="field">
+                <label>证书类型（自动识别）</label>
+                <select id="personCertType">
+                  <option value="">请选择</option>
+                  <option value="id_card">id_card</option>
+                  <option value="diploma">diploma</option>
+                  <option value="license">license</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>人员ID</label>
+                <input id="personOwnerId" type="text" placeholder="人员 owner_id" />
+              </div>
+              <div class="field">
+                <label>上传图片</label>
+                <input id="personCertFile" type="file" />
+              </div>
+              <div class="field">
+                <label>操作</label>
+                <div class="row">
+                  <button id="btnPersonCertCreate">新增人员证件</button>
+                  <button id="btnPersonCertUpdate" class="secondary hidden">保存人员修改</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="muted small">证书类型会根据证件名称尝试自动匹配，可手动调整。</div>
       </div>
     </div>
 
@@ -714,19 +780,7 @@
   // 1.5) 证件管理 CRUD
   // =======================
   const certEvidenceId = el("certEvidenceId");
-  const certScope = el("certScope");
-  const certOwnerId = el("certOwnerId");
-  const certDocTypeCode = el("certDocTypeCode");
-  const certNo = el("certNo");
-  const certIssuer = el("certIssuer");
-  const certIssuedAt = el("certIssuedAt");
-  const certExpiresAt = el("certExpiresAt");
-  const certStatus = el("certStatus");
-  const certTags = el("certTags");
-  const certFile = el("certFile");
-
-  const btnCertCreate = el("btnCertCreate");
-  const btnCertUpdate = el("btnCertUpdate");
+  const btnCertOpenCreate = el("btnCertOpenCreate");
   const btnCertDelete = el("btnCertDelete");
   const certPrev = el("certPrev");
   const certNext = el("certNext");
@@ -736,8 +790,25 @@
   const certTbody = el("certTbody");
   const certLog = el("certLog");
 
+  const certCreateModal = el("certCreateModal");
+  const btnCertCloseCreate = el("btnCertCloseCreate");
+  const certSelectedLabel = el("certSelectedLabel");
+  const companyCertName = el("companyCertName");
+  const companyCertType = el("companyCertType");
+  const companyOwnerId = el("companyOwnerId");
+  const companyCertFile = el("companyCertFile");
+  const btnCompanyCertCreate = el("btnCompanyCertCreate");
+  const btnCompanyCertUpdate = el("btnCompanyCertUpdate");
+  const personCertName = el("personCertName");
+  const personCertType = el("personCertType");
+  const personOwnerId = el("personOwnerId");
+  const personCertFile = el("personCertFile");
+  const btnPersonCertCreate = el("btnPersonCertCreate");
+  const btnPersonCertUpdate = el("btnPersonCertUpdate");
+
   const certPageSize = 5;
   let certState = { page: 1, total: 0 };
+  let selectedCert = null;
 
   function certLogLine(msg) {
     const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -752,6 +823,33 @@
     return "/api/v1/certs?" + params.toString();
   }
 
+  const certTypeAutoMap = [
+    { keyword: "营业执照", type: "business_license" },
+    { keyword: "税", type: "tax_certificate" },
+    { keyword: "专利", type: "patent" },
+    { keyword: "资质", type: "qualification" },
+    { keyword: "身份证", type: "id_card" },
+    { keyword: "学历", type: "diploma" },
+    { keyword: "资格", type: "license" },
+  ];
+
+  function detectCertType(name) {
+    const raw = (name || "").trim();
+    if (!raw) return "";
+    const hit = certTypeAutoMap.find(item => raw.includes(item.keyword));
+    return hit ? hit.type : "";
+  }
+
+  function setModalMode(mode) {
+    if (mode === "edit") {
+      btnCompanyCertUpdate.classList.remove("hidden");
+      btnPersonCertUpdate.classList.remove("hidden");
+    } else {
+      btnCompanyCertUpdate.classList.add("hidden");
+      btnPersonCertUpdate.classList.add("hidden");
+    }
+  }
+
   function renderCertList(items) {
     if (!items || items.length === 0) {
       certTbody.innerHTML = `<tr><td colspan="5" class="muted">暂无数据</td></tr>`;
@@ -761,14 +859,13 @@
     const rows = items.map(it => {
       const file = it.file || {};
       const fileInfo = `
-        <div><b>${escapeHtml(file.original_name || "")}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
-        ${file.download_url ? `<div class="mt-6"><a href="${file.download_url}" download>下载图片</a></div>` : ""}
       `;
 
+      const itemPayload = escapeHtml(JSON.stringify(it));
       return `
-        <tr>
+        <tr data-cert='${itemPayload}'>
           <td class="nowrap">${escapeHtml(it.evidence_id || "")}</td>
           <td class="nowrap">${escapeHtml(it.owner_name || it.owner_id || "")}</td>
           <td>
@@ -782,6 +879,19 @@
     }).join("");
 
     certTbody.innerHTML = rows;
+
+    certTbody.querySelectorAll("tr[data-cert]").forEach(row => {
+      row.addEventListener("click", () => {
+        const payload = row.getAttribute("data-cert");
+        if (!payload) return;
+        selectedCert = JSON.parse(payload);
+        certEvidenceId.value = selectedCert.evidence_id || "";
+        certSelectedLabel.textContent = selectedCert.evidence_id || "未选择";
+        certLogLine(`selected: ${selectedCert.evidence_id || ""}`);
+        openCertModal("edit");
+        fillModalFromSelection(selectedCert);
+      });
+    });
   }
 
   async function fetchCertList(page) {
@@ -808,68 +918,199 @@
     }
   }
 
-  function buildCertFormData({ includeFile, includeEmpty }) {
+  function openCertModal(mode) {
+    setModalMode(mode);
+    certCreateModal.classList.remove("hidden");
+  }
+
+  function closeCertModal() {
+    certCreateModal.classList.add("hidden");
+  }
+
+  function fillModalFromSelection(data) {
+    if (!data) return;
+    if (data.scope === "COMPANY") {
+      companyOwnerId.value = data.owner_id || "";
+      companyCertName.value = data.doc_type_name || "";
+      companyCertType.value = data.doc_type_code || "";
+      personOwnerId.value = "";
+    } else {
+      personOwnerId.value = data.owner_id || "";
+      personCertName.value = data.doc_type_name || "";
+      personCertType.value = data.doc_type_code || "";
+      companyOwnerId.value = "";
+    }
+  }
+
+  function resetCreateForm() {
+    companyCertName.value = "";
+    companyCertType.value = "";
+    companyOwnerId.value = "";
+    if (companyCertFile) companyCertFile.value = "";
+    personCertName.value = "";
+    personCertType.value = "";
+    personOwnerId.value = "";
+    if (personCertFile) personCertFile.value = "";
+  }
+
+  function buildCreateFormData({ scope, ownerId, docTypeCode, certName, fileInput }) {
     const fd = new FormData();
-    const payload = {
-      scope: certScope.value,
-      owner_id: certOwnerId.value,
-      doc_type_code: certDocTypeCode.value,
-      cert_no: certNo.value,
-      issuer: certIssuer.value,
-      issued_at: certIssuedAt.value,
-      expires_at: certExpiresAt.value,
-      status: certStatus.value,
-      tags: certTags.value,
-    };
-
-    Object.entries(payload).forEach(([key, value]) => {
-      const val = (value || "").trim();
-      if (includeEmpty || val) {
-        fd.append(key, val);
-      }
-    });
-
-    if (includeFile && certFile.files && certFile.files[0]) {
-      fd.append("file", certFile.files[0]);
+    fd.append("scope", scope);
+    fd.append("owner_id", ownerId || "");
+    fd.append("doc_type_code", docTypeCode || "");
+    fd.append("cert_no", certName || "");
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      fd.append("file", fileInput.files[0]);
     }
     return fd;
   }
 
-  btnCertCreate.addEventListener("click", async () => {
-    if (!certFile.files || !certFile.files[0]) {
-      certLogLine("error: 新增需要选择文件");
+  function buildUpdateFormData({ ownerId, docTypeCode, certName, fileInput }) {
+    const fd = new FormData();
+    if (ownerId) fd.append("owner_id", ownerId);
+    if (docTypeCode) fd.append("doc_type_code", docTypeCode);
+    if (certName) fd.append("cert_no", certName);
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      fd.append("file", fileInput.files[0]);
+    }
+    return fd;
+  }
+
+  btnCertOpenCreate.addEventListener("click", () => {
+    selectedCert = null;
+    certEvidenceId.value = "";
+    certSelectedLabel.textContent = "未选择";
+    resetCreateForm();
+    openCertModal("create");
+  });
+
+  btnCertCloseCreate.addEventListener("click", closeCertModal);
+  certCreateModal.querySelector(".modal-backdrop").addEventListener("click", closeCertModal);
+
+  companyCertName.addEventListener("input", () => {
+    const autoType = detectCertType(companyCertName.value);
+    if (autoType) companyCertType.value = autoType;
+  });
+
+  personCertName.addEventListener("input", () => {
+    const autoType = detectCertType(personCertName.value);
+    if (autoType) personCertType.value = autoType;
+  });
+
+  btnCompanyCertCreate.addEventListener("click", async () => {
+    if (!companyOwnerId.value) {
+      certLogLine("error: 请填写公司ID");
+      return;
+    }
+    if (!companyCertType.value) {
+      certLogLine("error: 请填写证书类型");
+      return;
+    }
+    if (!companyCertFile.files || !companyCertFile.files[0]) {
+      certLogLine("error: 请上传公司证书图片");
       return;
     }
 
     try {
       const resp = await fetch("/api/v1/certs", {
         method: "POST",
-        body: buildCertFormData({ includeFile: true, includeEmpty: true }),
+        body: buildCreateFormData({
+          scope: "COMPANY",
+          ownerId: companyOwnerId.value,
+          docTypeCode: companyCertType.value,
+          certName: companyCertName.value,
+          fileInput: companyCertFile,
+        }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
-      certLogLine(`created: ${data.evidence_id || ""}`);
+      certLogLine(`created company cert: ${data.evidence_id || ""}`);
+      closeCertModal();
       fetchCertList(1);
     } catch (e) {
       certLogLine("error: " + (e.message || e));
     }
   });
 
-  btnCertUpdate.addEventListener("click", async () => {
-    const evidenceId = (certEvidenceId.value || "").trim();
-    if (!evidenceId) {
-      certLogLine("error: 请输入 evidence_id");
+  btnPersonCertCreate.addEventListener("click", async () => {
+    if (!personOwnerId.value) {
+      certLogLine("error: 请填写人员ID");
+      return;
+    }
+    if (!personCertType.value) {
+      certLogLine("error: 请填写证书类型");
+      return;
+    }
+    if (!personCertFile.files || !personCertFile.files[0]) {
+      certLogLine("error: 请上传人员证件图片");
       return;
     }
 
     try {
-      const resp = await fetch(`/api/v1/certs/${encodeURIComponent(evidenceId)}`, {
-        method: "PUT",
-        body: buildCertFormData({ includeFile: true, includeEmpty: false }),
+      const resp = await fetch("/api/v1/certs", {
+        method: "POST",
+        body: buildCreateFormData({
+          scope: "PERSON",
+          ownerId: personOwnerId.value,
+          docTypeCode: personCertType.value,
+          certName: personCertName.value,
+          fileInput: personCertFile,
+        }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
-      certLogLine(`updated: ${evidenceId}`);
+      certLogLine(`created person cert: ${data.evidence_id || ""}`);
+      closeCertModal();
+      fetchCertList(1);
+    } catch (e) {
+      certLogLine("error: " + (e.message || e));
+    }
+  });
+
+  btnCompanyCertUpdate.addEventListener("click", async () => {
+    if (!selectedCert || selectedCert.scope !== "COMPANY") {
+      certLogLine("error: 请先选中公司证书");
+      return;
+    }
+    try {
+      const resp = await fetch(`/api/v1/certs/${encodeURIComponent(selectedCert.evidence_id)}`, {
+        method: "PUT",
+        body: buildUpdateFormData({
+          ownerId: companyOwnerId.value,
+          docTypeCode: companyCertType.value,
+          certName: companyCertName.value,
+          fileInput: companyCertFile,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+      certLogLine(`updated company cert: ${selectedCert.evidence_id || ""}`);
+      closeCertModal();
+      fetchCertList(certState.page);
+    } catch (e) {
+      certLogLine("error: " + (e.message || e));
+    }
+  });
+
+  btnPersonCertUpdate.addEventListener("click", async () => {
+    if (!selectedCert || selectedCert.scope !== "PERSON") {
+      certLogLine("error: 请先选中人员证件");
+      return;
+    }
+    try {
+      const resp = await fetch(`/api/v1/certs/${encodeURIComponent(selectedCert.evidence_id)}`, {
+        method: "PUT",
+        body: buildUpdateFormData({
+          ownerId: personOwnerId.value,
+          docTypeCode: personCertType.value,
+          certName: personCertName.value,
+          fileInput: personCertFile,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || `HTTP ${resp.status}`);
+      certLogLine(`updated person cert: ${selectedCert.evidence_id || ""}`);
+      closeCertModal();
       fetchCertList(certState.page);
     } catch (e) {
       certLogLine("error: " + (e.message || e));
