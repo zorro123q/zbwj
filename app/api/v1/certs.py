@@ -87,6 +87,30 @@ def _ensure_owner(scope: str, owner_id: Optional[str], owner_name: Optional[str]
     return new_id
 
 
+def _ensure_doc_type(scope: str, doc_type_code: Optional[str], doc_type_name: Optional[str]) -> DocumentType:
+    scoped = (scope or "").strip().upper()
+    code = (doc_type_code or "").strip()
+    name = (doc_type_name or "").strip() or code
+    if not code:
+        raise ValueError("doc_type_code is required")
+
+    existing = (
+        db.session.query(DocumentType)
+        .filter(DocumentType.scope == scoped, DocumentType.code == code)
+        .first()
+    )
+    if existing:
+        if name and existing.name != name:
+            existing.name = name
+            db.session.commit()
+        return existing
+
+    dt = DocumentType(scope=scoped, code=code, name=name, category="custom")
+    db.session.add(dt)
+    db.session.commit()
+    return dt
+
+
 def _evidence_to_dict(evidence: Evidence, doc_type: DocumentType, stored: StoredFile, owner_name: Optional[str]) -> Dict[str, Any]:
     return {
         "evidence_id": evidence.id,
@@ -197,9 +221,11 @@ def create_cert():
     owner_id = data.get("owner_id")
     owner_name = data.get("owner_name") or data.get("cert_no")
     doc_type_code = data.get("doc_type_code")
+    doc_type_name = data.get("doc_type_name")
 
     try:
         owner_id = _ensure_owner(scope, owner_id, owner_name)
+        _ensure_doc_type(scope, doc_type_code, doc_type_name)
         issued_at = _parse_date(data.get("issued_at"))
         expires_at = _parse_date(data.get("expires_at"))
     except ValueError as exc:
@@ -325,14 +351,12 @@ def update_cert(evidence_id: str):
     if current_dt is None:
         return jsonify(error="bad_request", message="document type not found"), 400
     doc_type_code = (data.get("doc_type_code") or "").strip() if "doc_type_code" in data else None
+    doc_type_name = (data.get("doc_type_name") or "").strip() if "doc_type_name" in data else None
     if doc_type_code is not None:
-        dt = (
-            db.session.query(DocumentType)
-            .filter(DocumentType.scope == evidence.scope, DocumentType.code == doc_type_code)
-            .first()
-        )
-        if not dt:
-            return jsonify(error="bad_request", message="document type not found for this scope/code"), 400
+        try:
+            dt = _ensure_doc_type(evidence.scope, doc_type_code, doc_type_name)
+        except ValueError as exc:
+            return jsonify(error="bad_request", message=str(exc)), 400
         evidence.document_type_id = dt.id
         current_dt = dt
 

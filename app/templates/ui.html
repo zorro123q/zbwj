@@ -952,11 +952,18 @@
     if (personCertFile) personCertFile.value = "";
   }
 
-  function buildCreateFormData({ scope, ownerName, docTypeCode, certName, fileInput }) {
+  function getDocTypeName(selectEl) {
+    if (!selectEl) return "";
+    const option = selectEl.options[selectEl.selectedIndex];
+    return option ? option.text : "";
+  }
+
+  function buildCreateFormData({ scope, ownerName, docTypeCode, docTypeName, certName, fileInput }) {
     const fd = new FormData();
     fd.append("scope", scope);
     fd.append("owner_name", ownerName || "");
     fd.append("doc_type_code", docTypeCode || "");
+    fd.append("doc_type_name", docTypeName || "");
     fd.append("cert_no", certName || "");
     if (fileInput && fileInput.files && fileInput.files[0]) {
       fd.append("file", fileInput.files[0]);
@@ -964,10 +971,11 @@
     return fd;
   }
 
-  function buildUpdateFormData({ ownerName, docTypeCode, certName, fileInput }) {
+  function buildUpdateFormData({ ownerName, docTypeCode, docTypeName, certName, fileInput }) {
     const fd = new FormData();
     if (ownerName) fd.append("owner_name", ownerName);
     if (docTypeCode) fd.append("doc_type_code", docTypeCode);
+    if (docTypeName) fd.append("doc_type_name", docTypeName);
     if (certName) fd.append("cert_no", certName);
     if (fileInput && fileInput.files && fileInput.files[0]) {
       fd.append("file", fileInput.files[0]);
@@ -1013,6 +1021,7 @@
           scope: "COMPANY",
           ownerName: companyCertName.value || "未命名公司",
           docTypeCode: companyCertType.value,
+          docTypeName: getDocTypeName(companyCertType),
           certName: companyCertName.value,
           fileInput: companyCertFile,
         }),
@@ -1048,6 +1057,7 @@
           scope: "PERSON",
           ownerName: personName.value,
           docTypeCode: personCertType.value,
+          docTypeName: getDocTypeName(personCertType),
           certName: personCertName.value,
           fileInput: personCertFile,
         }),
@@ -1073,6 +1083,7 @@
         body: buildUpdateFormData({
           ownerName: selectedCert.owner_name,
           docTypeCode: companyCertType.value,
+          docTypeName: getDocTypeName(companyCertType),
           certName: companyCertName.value,
           fileInput: companyCertFile,
         }),
@@ -1098,6 +1109,7 @@
         body: buildUpdateFormData({
           ownerName: personName.value,
           docTypeCode: personCertType.value,
+          docTypeName: getDocTypeName(personCertType),
           certName: personCertName.value,
           fileInput: personCertFile,
         }),
