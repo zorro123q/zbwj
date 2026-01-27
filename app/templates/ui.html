@@ -590,11 +590,13 @@
       const file = it.file || {};
       const cert = it.cert_no || "";
       const issuer = it.issuer || "";
+      const downloadUrl = file.download_url || "";
+      const downloadName = file.original_name || "certificate";
 
       const fileInfo = `
         <div><b>${escapeHtml(file.original_name || "")}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
-        <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
+        ${downloadUrl ? `<a class="btnlink secondary btn-mini" href="${downloadUrl}" download="${escapeHtml(downloadName)}">下载图片</a>` : '<span class="small muted">无可下载文件</span>'}
       `;
 
       return `
