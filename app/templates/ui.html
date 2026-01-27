@@ -320,17 +320,17 @@
             <h3>公司证书新增</h3>
             <div class="form-grid">
               <div class="field">
-                <label>证件名称</label>
+                <label>证书详细名称（file）</label>
                 <input id="companyCertName" type="text" placeholder="例如：ISO9001 质量管理体系认证证书_01.png" />
               </div>
               <div class="field">
-                <label>证书类型（自动识别）</label>
+                <label>证书类型（doc_type，自动识别）</label>
                 <select id="companyCertType">
                   <option value="">请选择</option>
-                  <option value="business_license">business_license</option>
-                  <option value="tax_certificate">tax_certificate</option>
-                  <option value="patent">patent</option>
-                  <option value="qualification">qualification</option>
+                  <option value="patent">专利</option>
+                  <option value="business_license">营业执照</option>
+                  <option value="qualification">资质证书</option>
+                  <option value="tax_certificate">税务证明</option>
                 </select>
               </div>
               <div class="field">
@@ -351,20 +351,20 @@
             <h3>人员信息新增</h3>
             <div class="form-grid">
               <div class="field">
-                <label>人员名称</label>
+                <label>人员名称（owner_name）</label>
                 <input id="personName" type="text" placeholder="例如：武全胜" />
               </div>
               <div class="field">
-                <label>证件名称</label>
+                <label>证书详细名称（file）</label>
                 <input id="personCertName" type="text" placeholder="例如：高级信息系统项目管理师-武全胜.png" />
               </div>
               <div class="field">
-                <label>证书类型（自动识别）</label>
+                <label>证书类型（doc_type，自动识别）</label>
                 <select id="personCertType">
                   <option value="">请选择</option>
-                  <option value="id_card">id_card</option>
-                  <option value="diploma">diploma</option>
-                  <option value="license">license</option>
+                  <option value="network_engineer">网络工程师</option>
+                  <option value="project_manager">项目管理师</option>
+                  <option value="diploma">学历证书</option>
                 </select>
               </div>
               <div class="field">
@@ -824,9 +824,9 @@
     { keyword: "税", type: "tax_certificate" },
     { keyword: "专利", type: "patent" },
     { keyword: "资质", type: "qualification" },
-    { keyword: "身份证", type: "id_card" },
+    { keyword: "网络工程师", type: "network_engineer" },
+    { keyword: "项目管理", type: "project_manager" },
     { keyword: "学历", type: "diploma" },
-    { keyword: "资格", type: "license" },
   ];
 
   function detectCertType(name) {
