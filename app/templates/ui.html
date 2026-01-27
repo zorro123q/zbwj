@@ -124,6 +124,29 @@
     .small { font-size: 12px; color: var(--muted); }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .btn-mini { padding: 6px 10px; border-radius: 8px; font-size: 12px; }
+    .thumb {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 4px;
+      background: #fff;
+      margin-bottom: 6px;
+    }
+    .thumb img {
+      display: block;
+      max-width: 140px;
+      max-height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .file-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -591,10 +614,30 @@
       const cert = it.cert_no || "";
       const issuer = it.issuer || "";
 
+      const fileId = file.file_id || "";
+      const mimeType = file.mime_type || "";
+      const isImage = mimeType.startsWith("image/");
+      const previewUrl = fileId ? `/api/v1/index/files/${encodeURIComponent(fileId)}/preview` : "";
+      const downloadUrl = fileId ? `/api/v1/index/files/${encodeURIComponent(fileId)}/download` : "";
+
+      const previewBlock = isImage && previewUrl
+        ? `<a class="thumb" href="${previewUrl}" target="_blank" rel="noopener">
+             <img src="${previewUrl}" alt="preview" loading="lazy" />
+           </a>`
+        : `<div class="small muted">无预览</div>`;
+
+      const actions = downloadUrl
+        ? `<div class="file-actions">
+             <a class="small" href="${downloadUrl}" target="_blank" rel="noopener">下载</a>
+           </div>`
+        : "";
+
       const fileInfo = `
+        ${previewBlock}
         <div><b>${escapeHtml(file.original_name || "")}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
+        ${actions}
       `;
 
       return `
