@@ -135,6 +135,24 @@
       border-radius: 12px;
       padding: 10px 12px;
     }
+    .file-cell { display: grid; gap: 8px; }
+    .file-preview {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    .thumb {
+      width: 96px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #f1f5f9;
+    }
   </style>
 </head>
 <body>
@@ -235,7 +253,7 @@
               <th class="nowrap">issued_at</th>
               <th class="nowrap">expires_at</th>
               <th class="nowrap">status</th>
-              <th>file</th>
+              <th>file / 预览</th>
             </tr>
           </thead>
           <tbody id="searchTbody">
@@ -586,15 +604,38 @@
       return;
     }
 
+    function buildFileUrl(path) {
+      const cleaned = (path || "").replace(/^\/+/, "");
+      return cleaned ? `/${cleaned}` : "";
+    }
+
+    function isImageFile(file) {
+      const mime = (file?.mime_type || "").toLowerCase();
+      if (mime.startsWith("image/")) return true;
+      const path = (file?.storage_rel_path || "").toLowerCase();
+      return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"].some(ext => path.endsWith(ext));
+    }
+
     const rows = items.map(it => {
       const file = it.file || {};
       const cert = it.cert_no || "";
       const issuer = it.issuer || "";
+      const fileUrl = buildFileUrl(file.storage_rel_path);
+      const canPreview = fileUrl && isImageFile(file);
 
       const fileInfo = `
-        <div><b>${escapeHtml(file.original_name || "")}</b></div>
-        <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
-        <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
+        <div class="file-cell">
+          <div><b>${escapeHtml(file.original_name || "")}</b></div>
+          <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
+          <div class="small mono">${escapeHtml(file.storage_rel_path || "")}</div>
+          ${fileUrl ? `<a class="small" href="${escapeHtml(fileUrl)}" download>下载原始文件</a>` : `<span class="small muted">暂无可下载文件</span>`}
+          ${canPreview ? `
+            <a class="file-preview" href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener">
+              <img class="thumb" src="${escapeHtml(fileUrl)}" alt="证书图片预览" loading="lazy" />
+              <span class="small">点击查看大图</span>
+            </a>
+          ` : `<div class="small muted">暂无图片预览</div>`}
+        </div>
       `;
 
       return `
