@@ -124,18 +124,12 @@ def _is_dup_scope_owner_doc_file(err: Exception) -> bool:
     return ("Duplicate entry" in msg) and ("uniq_scope_owner_doc_file" in msg)
 
 
-def save_image(
+def save_cert_file(
     file: FileStorage,
     scope: str,
     owner_id: str,
     doc_type_code: str,
-    *,
-    cert_no: Optional[str] = None,
-    issuer: Optional[str] = None,
-    issued_at=None,
-    expires_at=None,
-    tags: Optional[str] = None,
-) -> Dict:
+) -> Tuple[StoredFile, DocumentType]:
     scope = (scope or "").upper().strip()
     if scope not in ("PERSON", "COMPANY"):
         raise ValueError("scope must be PERSON or COMPANY")
@@ -179,7 +173,6 @@ def save_image(
 
     sha = hasher.hexdigest()
 
-    # sha256 去重
     existing = db.session.query(StoredFile).filter(StoredFile.sha256 == sha).first()
     if existing:
         try:
@@ -188,7 +181,6 @@ def save_image(
         except Exception:
             pass
 
-        # ✅ 关键：如果这次导入拿到了更好的中文原名，就覆盖旧名
         if _should_upgrade_name(existing.original_name, original_name, existing.ext):
             existing.original_name = original_name
             db.session.commit()
@@ -213,12 +205,27 @@ def save_image(
             if not stored:
                 raise
 
-            # 并发下也做一次名字升级
             if _should_upgrade_name(stored.original_name, original_name, stored.ext):
                 stored.original_name = original_name
                 db.session.commit()
 
-    # evidences 插入（幂等）
+    return stored, dt
+
+
+def save_image(
+    file: FileStorage,
+    scope: str,
+    owner_id: str,
+    doc_type_code: str,
+    *,
+    cert_no: Optional[str] = None,
+    issuer: Optional[str] = None,
+    issued_at=None,
+    expires_at=None,
+    tags: Optional[str] = None,
+) -> Dict:
+    stored, dt = save_cert_file(file, scope, owner_id, doc_type_code)
+
     evidence_id = str(uuid.uuid4())
     ev = Evidence(
         id=evidence_id,
