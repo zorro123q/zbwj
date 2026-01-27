@@ -124,6 +124,23 @@
     .small { font-size: 12px; color: var(--muted); }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .btn-mini { padding: 6px 10px; border-radius: 8px; font-size: 12px; }
+    .file-preview {
+      display: grid;
+      gap: 6px;
+    }
+    .file-preview img {
+      width: 120px;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .file-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -590,11 +607,26 @@
       const file = it.file || {};
       const cert = it.cert_no || "";
       const issuer = it.issuer || "";
+      const fileId = file.file_id || "";
+      const fileName = file.original_name || "";
+      const previewUrl = fileId ? `/api/v1/certs/files/${encodeURIComponent(fileId)}` : "";
+      const downloadUrl = fileId ? `${previewUrl}?download=1` : "";
 
       const fileInfo = `
-        <div><b>${escapeHtml(file.original_name || "")}</b></div>
+        <div><b>${escapeHtml(fileName)}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
+        ${previewUrl ? `
+          <div class="file-preview">
+            <a href="${previewUrl}" target="_blank" rel="noopener">
+              <img src="${previewUrl}" alt="${escapeHtml(fileName)}" loading="lazy" />
+            </a>
+            <div class="file-actions">
+              <a class="btnlink secondary btn-mini" href="${downloadUrl}">下载</a>
+              <a class="btnlink secondary btn-mini" href="${previewUrl}" target="_blank" rel="noopener">预览</a>
+            </div>
+          </div>
+        ` : ""}
       `;
 
       return `
