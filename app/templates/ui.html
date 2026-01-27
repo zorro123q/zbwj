@@ -173,30 +173,6 @@
         </div>
 
         <div class="field">
-          <label>doc_type_code（可选）</label>
-          <input id="searchDocTypeCode" type="text" placeholder="例如：patent / business_license" />
-        </div>
-
-        <div class="field">
-          <label>owner_id（可选）</label>
-          <input id="searchOwnerId" type="text" placeholder="限定某人/公司" />
-        </div>
-
-        <div class="field">
-          <label>valid_on（可选）</label>
-          <input id="searchValidOn" type="date" />
-        </div>
-
-        <div class="field">
-          <label>sort</label>
-          <select id="searchSort">
-            <option value="relevance_desc">relevance_desc</option>
-            <option value="created_at_desc">created_at_desc</option>
-            <option value="expires_at_asc">expires_at_asc</option>
-          </select>
-        </div>
-
-        <div class="field">
           <label>操作</label>
           <div class="row">
             <button id="btnSearch">搜索</button>
@@ -626,11 +602,6 @@
   // =======================
   const searchQ = el("searchQ");
   const searchScope = el("searchScope");
-  const searchDocTypeCode = el("searchDocTypeCode");
-  const searchOwnerId = el("searchOwnerId");
-  const searchValidOn = el("searchValidOn");
-  const searchSort = el("searchSort");
-
   const btnSearch = el("btnSearch");
   const btnSearchReset = el("btnSearchReset");
   const btnPrev = el("btnPrev");
@@ -659,18 +630,6 @@
     const scopev = (searchScope.value || "").trim();
     if (scopev) params.set("scope", scopev);
 
-    const owner = (searchOwnerId.value || "").trim();
-    if (owner) params.set("owner_id", owner);
-
-    const docCode = (searchDocTypeCode.value || "").trim();
-    if (docCode) params.set("doc_type_code", docCode);
-
-    const vo = (searchValidOn.value || "").trim();
-    if (vo) params.set("valid_on", vo);
-
-    const sortv = (searchSort.value || "relevance_desc").trim();
-    if (sortv) params.set("sort", sortv);
-
     params.set("page_size", String(searchPageSize));
     params.set("page", String(page));
 
@@ -689,7 +648,6 @@
         <div><b>${escapeHtml(file.original_name || "")}</b></div>
         <div class="small">${escapeHtml(file.mime_type || "")} · ${escapeHtml(file.size_bytes || "")} bytes</div>
         <div class="small">${escapeHtml(file.storage_rel_path || "")}</div>
-        ${file.download_url ? `<div class="mt-6"><a href="${file.download_url}" download>下载图片</a></div>` : ""}
       `;
 
       return `
@@ -739,10 +697,6 @@
   btnSearchReset.addEventListener("click", () => {
     searchQ.value = "";
     searchScope.value = "";
-    searchDocTypeCode.value = "";
-    searchOwnerId.value = "";
-    searchValidOn.value = "";
-    searchSort.value = "relevance_desc";
     searchState.page = 1;
     searchState.total = 0;
     searchPage.textContent = "1";
