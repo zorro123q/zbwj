@@ -151,7 +151,7 @@
     <div class="card">
       <div class="section-title">
         <div>
-          <h1>证书索引</h1>
+          <h1>第一步：证书索引</h1>
           <div class="muted">提示：如果数据库里还没导入对应数据，搜索会返回空。</div>
         </div>
         <div class="kv">total：<code id="searchTotal">0</code></div>
@@ -254,7 +254,7 @@
     <div class="card">
       <div class="section-title">
         <div>
-          <h1>知识库检索与导出</h1>
+          <h1>第二步：知识库检索与导出</h1>
           <div class="muted">
             说明：招标文件已通过离线脚本切片入库（<span class="mono">kb_documents/kb_blocks</span>，切片文件落到 <span class="mono">storage/kb/blocks/</span>）。
             <br/>这里支持：关键词检索（如“产品功能”）→ 返回相关内容 → 一键导出 Word（docx）。
@@ -344,81 +344,11 @@
       </div>
     </div>
 
-    <!-- ============ 一键生成：评审办法索引目录（模板评分大类 + result.xlsx 要求 + KB证据） ============ -->
-    <div class="card">
-      <div class="section-title">
-        <div>
-          <h1>一键生成评审办法索引</h1>
-          <div class="muted">先运行任务生成 <span class="mono">result.xlsx</span>，再填写 job_id 预览/生成。</div>
-        </div>
-        <div class="kv">requirements：<code id="riReqCount">0</code></div>
-      </div>
-
-      <div class="form-grid">
-        <div class="field">
-          <label>job_id（默认使用下方任务区的 job_id）</label>
-          <input id="riJobId" type="text" placeholder="例如：xxxx-xxxx-xxxx" />
-        </div>
-
-        <div class="field">
-          <label>KB tag（可选）</label>
-          <input id="riKbTag" type="text" value="tender" placeholder="例如：tender" />
-        </div>
-
-        <div class="field">
-          <label>每个评分大类证据条数</label>
-          <input id="riTopN" type="number" value="3" min="1" max="10" />
-        </div>
-
-        <div class="field">
-          <label>模板路径（可选）</label>
-          <input id="riTemplatePath" type="text" value="storage/kb/templates/评分大类.docx" />
-        </div>
-
-        <div class="field">
-          <label>预览条数 limit</label>
-          <input id="riLimit" type="number" value="200" min="50" max="2000" />
-        </div>
-
-        <div class="field">
-          <label>操作</label>
-          <div class="row">
-            <button id="btnRiLoad">预览要求表</button>
-            <button id="btnRiGenerate" class="secondary">一键生成（docx）</button>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h2>招标文件要求表（category / item / value / source）预览</h2>
-        <div style="overflow:auto;">
-          <table>
-            <thead>
-              <tr>
-                <th class="nowrap">category</th>
-                <th class="nowrap">item</th>
-                <th>value</th>
-                <th>source</th>
-              </tr>
-            </thead>
-            <tbody id="riReqTbody">
-              <tr><td colspan="4" class="muted">请先预览</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div>
-        <div class="muted">生成日志</div>
-        <pre id="riLog"></pre>
-      </div>
-    </div>
-
     <!-- ============ 任务闭环（你已有） ============ -->
     <div class="card">
       <div class="section-title">
         <div>
-          <h1>任务闭环（上传 → 选择脚本 → 创建任务 → 轮询 → 下载）</h1>
+          <h1>第三步：任务闭环（上传 → 选择脚本 → 创建任务 → 轮询 → 下载）</h1>
           <div class="muted">上传 → 选择脚本 → 创建任务 → 进度轮询 → 下载 XLSX/JSON/DOCX</div>
         </div>
         <div class="kv">job_id：<code id="jobId">-</code></div>
@@ -496,6 +426,76 @@
       <div>
         <div class="muted">任务日志</div>
         <pre id="log"></pre>
+      </div>
+    </div>
+
+    <!-- ============ 一键生成：评审办法索引目录（模板评分大类 + result.xlsx 要求 + KB证据） ============ -->
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h1>第四步：一键生成评审办法索引</h1>
+          <div class="muted">先运行任务生成 <span class="mono">result.xlsx</span>，再填写 job_id 预览/生成。</div>
+        </div>
+        <div class="kv">requirements：<code id="riReqCount">0</code></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>job_id（默认使用下方任务区的 job_id）</label>
+          <input id="riJobId" type="text" placeholder="例如：xxxx-xxxx-xxxx" />
+        </div>
+
+        <div class="field">
+          <label>KB tag（可选）</label>
+          <input id="riKbTag" type="text" value="tender" placeholder="例如：tender" />
+        </div>
+
+        <div class="field">
+          <label>每个评分大类证据条数</label>
+          <input id="riTopN" type="number" value="3" min="1" max="10" />
+        </div>
+
+        <div class="field">
+          <label>模板路径（可选）</label>
+          <input id="riTemplatePath" type="text" value="storage/kb/templates/评分大类.docx" />
+        </div>
+
+        <div class="field">
+          <label>预览条数 limit</label>
+          <input id="riLimit" type="number" value="200" min="50" max="2000" />
+        </div>
+
+        <div class="field">
+          <label>操作</label>
+          <div class="row">
+            <button id="btnRiLoad">预览要求表</button>
+            <button id="btnRiGenerate" class="secondary">一键生成（docx）</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2>招标文件要求表（category / item / value / source）预览</h2>
+        <div style="overflow:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th class="nowrap">category</th>
+                <th class="nowrap">item</th>
+                <th>value</th>
+                <th>source</th>
+              </tr>
+            </thead>
+            <tbody id="riReqTbody">
+              <tr><td colspan="4" class="muted">请先预览</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="muted">生成日志</div>
+        <pre id="riLog"></pre>
       </div>
     </div>
   </div>
