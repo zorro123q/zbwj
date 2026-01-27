@@ -23,11 +23,15 @@ def download_cert_file(file_id: str):
     if stored is None:
         return jsonify(error="not_found", message="file not found"), 404
 
-    rel_path = (stored.storage_rel_path or "").replace("\\", "/").lstrip("/")
+    rel_path = (stored.storage_rel_path or "").replace("\\", "/").strip()
     if not rel_path:
         return jsonify(error="not_found", message="file path missing"), 404
 
-    abs_path = (_repo_root() / Path(rel_path)).resolve()
+    candidate_path = Path(rel_path)
+    if candidate_path.is_absolute():
+        abs_path = candidate_path.resolve()
+    else:
+        abs_path = (_repo_root() / candidate_path).resolve()
     if not abs_path.exists() or not abs_path.is_file():
         return jsonify(error="not_found", message="file not found on disk"), 404
 
