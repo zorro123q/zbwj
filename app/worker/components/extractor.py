@@ -15,6 +15,9 @@ class Extractor:
       }
     """
 
+    # 估算分页标准：假设每 45 行文本对应一页 A4 文档
+    LINES_PER_PAGE = 45
+
     BASIC_FIELDS: List[Tuple[str, List[str]]] = [
         ("项目名称", [r"项目名称[:：]\s*(.+)"]),
         ("项目编号", [r"(项目编号|项目编号/编号)[:：]\s*([A-Za-z0-9\-—_]+)"]),
@@ -39,6 +42,13 @@ class Extractor:
     ]
 
     @staticmethod
+    def _estimate_page(line_idx: int) -> int:
+        """
+        根据行号估算页码 (Line Index starts from 1)
+        """
+        return ((line_idx - 1) // Extractor.LINES_PER_PAGE) + 1
+
+    @staticmethod
     def _normalize_lines(text: str) -> List[str]:
         text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
         lines = []
@@ -52,35 +62,36 @@ class Extractor:
     def _find_first_match(lines: List[str], patterns: List[str]) -> Tuple[str, str]:
         """
         Returns (value, source) or ("","")
-        source = "line:<idx> <snippet>"
+        source = "Page:X (line:Y)"
         """
         for i, ln in enumerate(lines, start=1):
             for pat in patterns:
                 m = re.search(pat, ln)
                 if m:
-                    # try group 1/2 safely
                     val = ""
                     if m.lastindex:
-                        # if pattern has 2 groups, often group2 is actual value
                         val = m.group(m.lastindex).strip()
                     else:
                         val = m.group(0).strip()
-                    src = f"line:{i} {ln[:120]}"
+
+                    page = Extractor._estimate_page(i)
+                    src = f"Page:{page} (line:{i})"
                     return val, src
         return "", ""
 
     @staticmethod
-    def _collect_keyword_lines(lines: List[str], keywords: List[str], limit: int = 30) -> List[Tuple[str, str]]:
+    def _collect_keyword_hits(lines: List[str], keywords: List[str], limit: int = 100) -> List[Tuple[int, str]]:
         """
-        collect lines containing any keyword; return list of (line_text, source)
+        Collects lines containing any keyword.
+        Returns list of (line_idx_1_based, line_text)
         """
-        out = []
+        hits = []
         for i, ln in enumerate(lines, start=1):
             if any(k in ln for k in keywords):
-                out.append((ln, f"line:{i} {ln[:120]}"))
-                if len(out) >= limit:
+                hits.append((i, ln))
+                if len(hits) >= limit:
                     break
-        return out
+        return hits
 
     @classmethod
     def extract(cls, text: str) -> Dict[str, Any]:
@@ -88,24 +99,45 @@ class Extractor:
 
         rows: List[List[Any]] = []
 
-        # 1) 基本信息（规则字段）
+        # -------------------------------------------------------
+        # 1) 基本信息 (已修改：改为聚合模式)
+        # -------------------------------------------------------
+        basic_info_parts = []
         for field_name, patterns in cls.BASIC_FIELDS:
             val, src = cls._find_first_match(lines, patterns)
             if val:
-                rows.append(["基本信息", field_name, val, src])
+                # 将每个字段拼接成： "【字段名】 值 ... (来源)"
+                # 例如: "【项目编号】 ZZB-24211 ... (Page:1 (line:3))"
+                basic_info_parts.append(f"【{field_name}】 {val}  -- {src}")
 
-        if not rows:
-            # 至少给一个 fallback
+        if basic_info_parts:
+            # 聚合为一个大文本块，用换行符分隔
+            full_basic_info = "\n".join(basic_info_parts)
+            rows.append(["基本信息", "基本信息汇总", full_basic_info, "聚合提取"])
+        else:
+            # 如果什么都没提取到，展示前10行作为预览
             preview = "\n".join(lines[:10]) if lines else ""
-            rows.append(["基本信息", "文本预览(前10行)", preview, "generated"])
+            rows.append(["基本信息", "文本预览(无匹配)", preview, "generated"])
 
-        # 2) 条款抓取（废标/评审/评分/注意等）
+        # -------------------------------------------------------
+        # 2) 条款抓取 (保持聚合模式)
+        # -------------------------------------------------------
         for cat, kws in cls.KEYWORD_CATEGORIES:
-            hits = cls._collect_keyword_lines(lines, kws, limit=20)
-            for idx, (ln, src) in enumerate(hits, start=1):
-                rows.append([cat, f"{cat}条目{idx}", ln, src])
+            hits = cls._collect_keyword_hits(lines, kws, limit=50)
 
-        # 3) 总结行：字符/行数
+            if hits:
+                aggregated_parts = []
+                for line_idx, ln in hits:
+                    page = cls._estimate_page(line_idx)
+                    # 格式: "Page:4 3.1 评分标准..."
+                    aggregated_parts.append(f"Page:{page} {ln}")
+
+                full_text = "\n".join(aggregated_parts)
+                rows.append([cat, f"{cat}汇总", full_text, "聚合生成"])
+
+        # -------------------------------------------------------
+        # 3) 总结行
+        # -------------------------------------------------------
         rows.append(["统计", "字符数", len(text or ""), "generated"])
         rows.append(["统计", "非空行数", len(lines), "generated"])
 

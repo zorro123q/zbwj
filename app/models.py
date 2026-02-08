@@ -1,82 +1,126 @@
+import uuid
 from datetime import datetime
-
-from sqlalchemy import Index, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Text, Boolean, UniqueConstraint, Index, BigInteger, Enum, ForeignKey, \
+    DateTime
 from sqlalchemy.sql import func
+from app.extensions import db
 
-from .extensions import db
 
+# =========================================================
+# 1. 基础设施表 (用于文件上传、异步任务)
+# =========================================================
 
 class File(db.Model):
+    """
+    通用文件记录表
+    """
     __tablename__ = "files"
 
-    id = db.Column(db.String(36), primary_key=True)
-    filename = db.Column(db.String(255), nullable=False)
-    ext = db.Column(db.String(10), nullable=False)
-    size = db.Column(db.Integer, nullable=False)
-    storage_path = db.Column(db.String(512), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    filename = Column(String(255), nullable=False)
+    ext = Column(String(50), nullable=True)
+    size = Column(Integer, default=0)
+    storage_path = Column(String(512), nullable=False)
+    mime_type = Column(String(100), nullable=True)
+
+    # 【核心修复】类型改为 DateTime，默认值为当前时间对象
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class Job(db.Model):
+    """
+    异步任务表
+    """
     __tablename__ = "jobs"
 
-    id = db.Column(db.String(36), primary_key=True)
-    file_id = db.Column(db.String(36), nullable=False, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    file_id = Column(String(36), index=True)
+    script_id = Column(String(100))
+    model_id = Column(String(100))
 
-    script_id = db.Column(db.String(128), nullable=False)
-    model_id = db.Column(db.String(128), nullable=False)
+    status = Column(String(50), default="PENDING")
+    stage = Column(String(50))
+    progress = Column(Integer, default=0)
 
-    status = db.Column(db.String(16), nullable=False)
-    stage = db.Column(db.String(64), nullable=False)
-    progress = db.Column(db.Integer, nullable=False)
+    artifact_json_path = Column(String(512))
+    artifact_xlsx_path = Column(String(512))
+    artifact_docx_path = Column(String(512))
 
-    artifact_json_path = db.Column(db.String(512), nullable=True)
-    artifact_xlsx_path = db.Column(db.String(512), nullable=True)
-    artifact_docx_path = db.Column(db.String(512), nullable=True)
+    error_message = Column(Text)
 
-    error_message = db.Column(db.String(2000), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+# =========================================================
+# 2. 知识库 RAG 表
+# =========================================================
+
+class KbBlock(db.Model):
+    """
+    知识库切片表
+    """
+    __tablename__ = "kb_blocks"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    # 关联 File 表的 ID
+    file_id = Column(String(36), index=True, nullable=False)
+
+    content_text = Column(Text)
+    content_len = Column(Integer, default=0)
+    tag = Column(String(50), index=True)
+    meta_json = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class KbDocument(db.Model):
+    """
+    (保留兼容)
+    """
+    __tablename__ = "kb_documents"
+    id = Column(String(36), primary_key=True)
+    file_id = Column(String(36), nullable=False, index=True)
+    title = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+
+# =========================================================
+# 3. 证书索引业务表 (保留原有业务模型)
+# =========================================================
 
 class Person(db.Model):
     __tablename__ = "persons"
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(128), nullable=False, index=True)
+    id_number = Column(String(256), nullable=True)
 
-    id = db.Column(db.String(36), primary_key=True)
-    name = db.Column(db.String(128), nullable=False, index=True)
-    id_number = db.Column(db.String(256), nullable=True)
-
-    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
-    updated_at = db.Column(db.DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class Company(db.Model):
     __tablename__ = "companies"
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(256), nullable=False, index=True)
+    unified_social_credit_code = Column(String(64), nullable=True)
 
-    id = db.Column(db.String(36), primary_key=True)
-    name = db.Column(db.String(256), nullable=False, index=True)
-    unified_social_credit_code = db.Column(db.String(64), nullable=True)
-
-    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
-    updated_at = db.Column(db.DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
-
-
-
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class StoredFile(db.Model):
     __tablename__ = "stored_files"
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    original_name = Column(String(255), nullable=False)
+    ext = Column(String(10), nullable=False)
+    mime_type = Column(String(128), nullable=False)
+    size_bytes = Column(BigInteger, nullable=False)
+    sha256 = Column(String(64), nullable=False)
+    storage_rel_path = Column(String(512), nullable=False)
 
-    id = db.Column(db.String(36), primary_key=True)
-    original_name = db.Column(db.String(255), nullable=False)
-    ext = db.Column(db.String(10), nullable=False)
-    mime_type = db.Column(db.String(128), nullable=False)
-    size_bytes = db.Column(db.BigInteger, nullable=False)
-    sha256 = db.Column(db.String(64), nullable=False)
-    storage_rel_path = db.Column(db.String(512), nullable=False)
-
-    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
 
     __table_args__ = (
         UniqueConstraint("sha256", name="uniq_sha256"),
@@ -84,59 +128,46 @@ class StoredFile(db.Model):
     )
 
 
-# ... 省略其它 import/模型
-
 class DocumentType(db.Model):
     __tablename__ = "document_types"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scope = Column(Enum("PERSON", "COMPANY", name="doc_scope_enum"), nullable=False)
+    code = Column(String(64), nullable=False)
+    name = Column(String(128), nullable=False)
+    category = Column(String(32), nullable=False)
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    scope = db.Column(db.Enum("PERSON", "COMPANY", name="doc_scope_enum"), nullable=False)
-    code = db.Column(db.String(64), nullable=False)
-    name = db.Column(db.String(128), nullable=False)
-    category = db.Column(db.String(32), nullable=False)
-
-    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
 
     __table_args__ = (
         UniqueConstraint("scope", "code", name="uniq_scope_code"),
         Index("idx_doc_types_scope", "scope"),
         Index("idx_document_types_code", "code"),
         Index("idx_document_types_name", "name"),
-        # FULLTEXT index created in migration (dialect-specific)
     )
 
 
 class Evidence(db.Model):
     __tablename__ = "evidences"
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    scope = Column(Enum("PERSON", "COMPANY", name="evidence_scope_enum"), nullable=False)
+    owner_id = Column(String(36), nullable=False)
+    document_type_id = Column(Integer, ForeignKey("document_types.id"), nullable=False)
+    file_id = Column(String(36), ForeignKey("stored_files.id"), nullable=False)
+    cert_no = Column(String(128), nullable=True)
+    issuer = Column(String(256), nullable=True)
 
-    id = db.Column(db.String(36), primary_key=True)
+    issued_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
 
-    scope = db.Column(db.Enum("PERSON", "COMPANY", name="evidence_scope_enum"), nullable=False)
-    owner_id = db.Column(db.String(36), nullable=False)
-
-    document_type_id = db.Column(db.Integer, db.ForeignKey("document_types.id"), nullable=False)
-    file_id = db.Column(db.String(36), db.ForeignKey("stored_files.id"), nullable=False)
-
-    cert_no = db.Column(db.String(128), nullable=True)
-    issuer = db.Column(db.String(256), nullable=True)
-    issued_at = db.Column(db.DateTime, nullable=True)
-    expires_at = db.Column(db.DateTime, nullable=True)
-
-    status = db.Column(
-        db.Enum("VALID", "EXPIRED", "UNKNOWN", name="evidence_status_enum"),
+    status = Column(
+        Enum("VALID", "EXPIRED", "UNKNOWN", name="evidence_status_enum"),
         nullable=False,
         server_default="UNKNOWN",
     )
+    tags = Column(String(512), nullable=True)
 
-    tags = db.Column(db.String(512), nullable=True)
-
-    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
-    updated_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     document_type = db.relationship("DocumentType", lazy="joined")
     stored_file = db.relationship("StoredFile", lazy="joined")
@@ -147,33 +178,4 @@ class Evidence(db.Model):
         Index("idx_cert_no", "cert_no"),
         Index("idx_expires_at", "expires_at"),
         Index("idx_issuer", "issuer"),
-        # FULLTEXT indexes created in migration (dialect-specific)
     )
-
-
-class KbDocument(db.Model):
-    __tablename__ = "kb_documents"
-
-    id = db.Column(db.String(36), primary_key=True)
-    file_id = db.Column(db.String(36), nullable=False, index=True)
-    title = db.Column(db.String(255), nullable=True)
-
-    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
-
-
-class KbBlock(db.Model):
-    __tablename__ = "kb_blocks"
-
-    id = db.Column(db.String(36), primary_key=True)
-    doc_id = db.Column(db.String(36), db.ForeignKey("kb_documents.id"), nullable=False, index=True)
-
-    tag = db.Column(db.String(64), nullable=True, index=True)
-    section_title = db.Column(db.String(255), nullable=False)
-    section_path = db.Column(db.String(512), nullable=False)
-    content_text = db.Column(db.Text, nullable=False)
-    start_idx = db.Column(db.Integer, nullable=False)
-    end_idx = db.Column(db.Integer, nullable=False)
-    block_docx_path = db.Column(db.String(512), nullable=False)
-
-    created_at = db.Column(db.DateTime, nullable=False, server_default=func.now())
-

@@ -1,5 +1,6 @@
 import os
 import uuid
+import time
 from pathlib import Path
 from flask import current_app
 from werkzeug.datastructures import FileStorage
@@ -24,27 +25,31 @@ class FileService:
         返回: File 模型对象
         """
         original_name = file_storage.filename or ""
-        safe_name = secure_filename(original_name)
 
-        if not safe_name:
-            raise ValueError("invalid filename")
+        # 【关键修复 1】先从原始文件名提取后缀，解决中文文件名被 secure_filename 清空导致无法识别后缀的问题
+        ext = _get_ext(original_name)
 
-        ext = _get_ext(safe_name)
         # 获取允许的扩展名，默认 txt/docx
         allowed = current_app.config.get("UPLOAD_ALLOWED_EXTENSIONS", {"txt", "docx"})
         if ext not in allowed:
-            raise ValueError("only txt/docx are allowed")
+            # 增加更详细的错误提示
+            raise ValueError(f"不支持的文件格式: .{ext} (仅支持: {', '.join(allowed)})")
+
+        # 【关键修复 2】处理中文文件名的 safe_name
+        safe_name = secure_filename(original_name)
+        # 如果文件名全是中文（例如 "标书.docx" -> "docx" 或 ""），safe_name 可能会损坏
+        # 如果清洗后为空，或者清洗后和后缀一样（说明前缀没了），则生成一个默认名字
+        if not safe_name or safe_name == ext:
+            # 使用时间戳作为文件名前缀，保留后缀
+            safe_name = f"upload_{int(time.time())}.{ext}"
 
         file_id = str(uuid.uuid4())
 
         # 1. 确定存储目录
-        # 兼容处理：优先使用配置中的绝对路径 UPLOAD_STORAGE_DIR
-        # 如果未配置，则回退到项目根目录下的 storage/uploads
         upload_dir_conf = current_app.config.get("UPLOAD_STORAGE_DIR")
         if upload_dir_conf:
             base_dir = Path(upload_dir_conf)
         else:
-            # 这里的 root_path 通常是 app/ 目录，parent 是项目根目录
             base_dir = Path(current_app.root_path).parent / "storage" / "uploads"
 
         target_dir = base_dir / file_id
@@ -57,24 +62,20 @@ class FileService:
         # 3. 保存文件
         file_storage.save(str(abs_path))
 
-        # 4. 检查大小（虽然 Flask 有 MAX_CONTENT_LENGTH，但双重保险）
+        # 4. 检查大小
         size = abs_path.stat().st_size
         max_size = int(current_app.config.get("MAX_CONTENT_LENGTH", 0) or 0)
         if max_size > 0 and size > max_size:
-            # 如果超限，删除已保存的文件
             try:
                 abs_path.unlink()
             except Exception:
                 pass
-            raise ValueError(f"file too large (max {max_size} bytes)")
+            raise ValueError(f"文件大小 ({size / 1024 / 1024:.2f}MB) 超过限制 ({max_size / 1024 / 1024:.0f}MB)")
 
         # 5. 写入数据库
-        # 注意：这里 storage_path 存入绝对路径或相对路径取决于配置。
-        # Runner 脚本通常能处理绝对路径（Path / abs_path = abs_path）。
-        # 为了展示的一致性，如果用了绝对路径配置，这里存绝对路径是安全的。
         rec = File(
             id=file_id,
-            filename=safe_name,
+            filename=safe_name,  # 此时 safe_name 已经修复，不会是空的
             ext=ext,
             size=int(size),
             storage_path=str(abs_path),

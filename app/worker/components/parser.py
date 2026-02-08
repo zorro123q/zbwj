@@ -9,8 +9,13 @@ class Parser:
         ext = (ext or "").lower().strip()
 
         if ext == "txt":
-            with path.open("r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
+            # 【修复乱码】优先尝试 UTF-8，失败则回退到 GB18030 (支持中文 GBK)
+            try:
+                with path.open("r", encoding="utf-8") as f:
+                    return f.read()
+            except UnicodeDecodeError:
+                with path.open("r", encoding="gb18030", errors="ignore") as f:
+                    return f.read()
 
         if ext == "docx":
             # 优先用 python-docx；如果环境里装错了 docx 包，会报 "No module named exceptions"
