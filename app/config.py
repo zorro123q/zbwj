@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Optional
 
 
@@ -18,19 +19,22 @@ def _build_mysql_uri() -> Optional[str]:
 
 
 class BaseConfig:
+    # 【Fix 2】定义项目根目录（更稳健的路径获取方式）
+    # 假设 config.py 位于 app/config.py，则项目根目录为 app/ 的父级
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
     JSON_AS_ASCII = False
 
-    # Upload limits (MVP existing)
+    # Upload limits
     MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20MB
     UPLOAD_ALLOWED_EXTENSIONS = {"txt", "docx"}
-    UPLOAD_STORAGE_DIR = "storage/uploads"
 
-    # Artifacts (MVP existing)
-    ARTIFACT_STORAGE_DIR = "storage/artifacts"
+    # 【Fix 2】使用 PROJECT_ROOT 拼接绝对路径，避免不同目录启动时的路径错误
+    UPLOAD_STORAGE_DIR = os.path.join(PROJECT_ROOT, "storage/uploads")
+    ARTIFACT_STORAGE_DIR = os.path.join(PROJECT_ROOT, "storage/artifacts")
+    CERTS_STORAGE_DIR = os.path.join(PROJECT_ROOT, "storage/certs")
 
-    # Cert image storage (T5)
-    CERTS_STORAGE_DIR = "storage/certs"
     CERTS_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "bmp"}
     CERTS_ENABLE_FULLTEXT = os.getenv("CERTS_ENABLE_FULLTEXT", "1") == "1"
 
@@ -38,10 +42,12 @@ class BaseConfig:
 
     # Prefer MySQL when env provided; fallback to DATABASE_URL; else sqlite
     _mysql_uri = _build_mysql_uri()
+
+    # 【Fix 2】SQLite 路径也建议使用绝对路径
     SQLALCHEMY_DATABASE_URI = (
-        _mysql_uri
-        or os.getenv("DATABASE_URL")
-        or "sqlite:///app.db"
+            _mysql_uri
+            or os.getenv("DATABASE_URL")
+            or f"sqlite:///{os.path.join(PROJECT_ROOT, 'instance/app.db')}"
     )
 
 
