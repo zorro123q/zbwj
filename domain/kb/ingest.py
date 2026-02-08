@@ -122,7 +122,11 @@ def _iter_blocks(doc) -> List[BlockDraft]:
 
 
 def _repo_root() -> Path:
-    # current_app.root_path 通常指向 <repo>/app
+    # 【Fix 2】使用 config 中的 PROJECT_ROOT，避免相对路径计算错误
+    root = current_app.config.get("PROJECT_ROOT")
+    if root:
+        return Path(root)
+    # 兜底逻辑：如果配置未加载，则回退到原逻辑
     return Path(current_app.root_path).parent
 
 
@@ -165,9 +169,11 @@ def ingest_kb(file_id: str, title: Optional[str]) -> Dict[str, int]:
     if ext != "docx":
         raise KbIngestError("only docx is supported for now")
 
+    # 注意：stored.storage_path 现在建议在存入时就存相对路径
+    # 这里使用 _repo_root() 拼接绝对路径
     abs_path = _repo_root() / Path(stored.storage_path)
     if not abs_path.exists():
-        raise KbIngestError("source file not found on disk")
+        raise KbIngestError(f"source file not found on disk: {abs_path}")
 
     doc = _load_docx(abs_path)
     blocks = _iter_blocks(doc)
@@ -179,7 +185,7 @@ def ingest_kb(file_id: str, title: Optional[str]) -> Dict[str, int]:
     doc_rec = KbDocument(id=doc_id, file_id=file_id, title=doc_title)
     db.session.add(doc_rec)
 
-    # ✅ 先 flush，避免 kb_blocks 外键 1452
+    # 关键：先 flush，避免 kb_blocks 外键 1452
     db.session.flush()
 
     for block in blocks:
@@ -206,7 +212,7 @@ def ingest_kb(file_id: str, title: Optional[str]) -> Dict[str, int]:
 
 def ingest_kb_from_path(file_path: str, title: Optional[str] = None, tag: Optional[str] = None) -> Dict[str, int]:
     """
-    ✅ 离线模式：不需要 file_id，直接读取本地 docx 路径并切片入库。
+    离线模式：不需要 file_id，直接读取本地 docx 路径并切片入库。
     """
     p = Path(file_path).expanduser().resolve()
     if not p.exists():
@@ -226,7 +232,7 @@ def ingest_kb_from_path(file_path: str, title: Optional[str] = None, tag: Option
     doc_rec = KbDocument(id=doc_id, file_id=pseudo_file_id, title=doc_title)
     db.session.add(doc_rec)
 
-    # ✅ 关键：先 flush，保证 kb_documents 先插入
+    # 关键：先 flush，保证 kb_documents 先插入
     db.session.flush()
 
     for block in blocks:

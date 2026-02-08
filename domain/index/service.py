@@ -196,7 +196,7 @@ def search_index(params: IndexSearchParams) -> Dict[str, Any]:
                         "original_name": sf.original_name,
                         "mime_type": sf.mime_type,
                         "size_bytes": int(sf.size_bytes),
-                        "storage_rel_path": sf.storage_rel_path,
+                        # "storage_rel_path": sf.storage_rel_path,  <-- 已移除该字段
                     },
                 }
             )
