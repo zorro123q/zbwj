@@ -2,7 +2,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from sqlalchemy import and_, case, desc, func
 
-from app.models import KbBlock
+from app.extensions import db
+from app.models import KbBlock, File  # 引入 File 模型用于关联
 
 
 class KbSearchError(ValueError):
@@ -16,13 +17,13 @@ def _normalize_keywords(keywords: Optional[Iterable[str]]) -> List[str]:
 
 
 def search_blocks(
-    *,
-    query: Optional[str],
-    top_k: Optional[int],
-    by_tag: Optional[str],
-    title_keywords: Optional[Iterable[str]],
-    page: int,
-    page_size: int,
+        *,
+        query: Optional[str],
+        top_k: Optional[int],
+        by_tag: Optional[str],
+        title_keywords: Optional[Iterable[str]],
+        page: int,
+        page_size: int,
 ) -> Dict[str, Any]:
     q = (query or "").strip()
     tag = (by_tag or "").strip()
@@ -37,22 +38,34 @@ def search_blocks(
     except (TypeError, ValueError) as exc:
         raise KbSearchError("top_k must be an integer") from exc
 
+    # ==========================================
+    # 核心查询构建：KbBlock JOIN File
+    # ==========================================
+    # 我们需要 File 表的 filename 来代替原来的 section_title
+    query_base = db.session.query(KbBlock, File).join(File, KbBlock.file_id == File.id)
+
     filters = []
+
+    # 1. Tag 过滤
     if tag:
         filters.append(KbBlock.tag == tag)
 
+    # 2. 评分逻辑
     score_parts = []
+
+    # 标题匹配 (现在匹配 File.filename)
     if title_terms:
         title_hits = []
         for term in title_terms:
             title_hits.append(
                 case(
-                    (func.lower(KbBlock.section_title).like(f"%{term.lower()}%"), 10),
+                    (func.lower(File.filename).like(f"%{term.lower()}%"), 10),
                     else_=0,
                 )
             )
         score_parts.append(sum(title_hits))
 
+    # 内容匹配
     if q:
         filters.append(func.lower(KbBlock.content_text).like(f"%{q.lower()}%"))
         score_parts.append(
@@ -64,11 +77,12 @@ def search_blocks(
 
     score_expr = sum(score_parts) if score_parts else case((True, 0), else_=0)
 
-    query_obj = KbBlock.query
+    # 3. 应用过滤
     if filters:
-        query_obj = query_obj.filter(and_(*filters))
+        query_base = query_base.filter(and_(*filters))
 
-    total = query_obj.count()
+    # 4. 统计总数
+    total = query_base.count()
     if top_k:
         total = min(total, top_k)
 
@@ -80,8 +94,9 @@ def search_blocks(
     if top_k:
         limit = min(page_size, top_k - offset)
 
+    # 5. 执行查询
     rows = (
-        query_obj.with_entities(KbBlock, score_expr.label("score"))
+        query_base.with_entities(KbBlock, File, score_expr.label("score"))
         .order_by(desc("score"), desc(KbBlock.created_at))
         .offset(offset)
         .limit(limit)
@@ -89,15 +104,15 @@ def search_blocks(
     )
 
     items: List[Dict[str, Any]] = []
-    for block, score in rows:
+    for block, file_rec, score in rows:
         items.append(
             {
                 "block_id": block.id,
-                "doc_id": block.doc_id,
-                "section_title": block.section_title,
+                "file_id": block.file_id,
+                "filename": file_rec.filename,  # 替代 section_title
                 "score": int(score or 0),
                 "content_text": block.content_text,
-                "content_docx_path": block.block_docx_path,
+                "meta": block.meta_json,  # 包含 chunk_index 等信息
             }
         )
 
