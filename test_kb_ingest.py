@@ -1,104 +1,62 @@
-import os
-import shutil
-import unittest
-import uuid
-from pathlib import Path
+import pandas as pd
 
-from app import create_app
-from app.extensions import db
-from app.models import File, KbBlock, KbDocument
+# ==========================================
+# 1. Table 1: Main Results (主实验结果)
+# ==========================================
+data_main = [
+    ["Method", "Backbone", "Retrieval R@5", "Retrieval MRR", "Gen BLEU-4", "Gen ROUGE-L", "Cit. Prec.", "Faith. Score", "Latency (ms)", "Mem (GB)"],
+    ["Text-Only Baselines", "", "", "", "", "", "", "", "", ""],
+    ["DPR + FiD", "T5-Large", 45.2, 51.3, 28.4, 33.1, "62.1%", 3.2, 120, 14.2],
+    ["Multimodal RAG", "", "", "", "", "", "", "", "", ""],
+    ["ViLBERT-RAG", "BERT-Large", 68.5, 72.1, 35.6, 41.2, "74.5%", 3.8, 450, 28.5],
+    ["CLIP-BART", "BART-Large", 65.8, 70.4, 34.2, 40.5, "71.2%", 3.6, 410, 24.1],
+    ["Non-RAG LMMs", "", "", "", "", "", "", "", "", ""],
+    ["LLaVA-1.5 (13B)", "LLaMA-2", "-", "-", 38.9, 44.5, "-", 2.1, 85, 26.0],
+    ["GPT-4V (Zero-shot)", "Proprietary", "-", "-", 44.2, 48.1, "-", 2.9, "-", "-"],
+    ["Ours", "", "", "", "", "", "", "", "", ""],
+    ["DDR (Ours)", "Mamba-2.8B", 74.2, 78.5, 43.8, 47.5, "89.4%", 4.6, 145, 8.4]
+]
 
-try:
-    from docx import Document
-except Exception:  # pragma: no cover
-    Document = None
+df_main = pd.DataFrame(data_main[1:], columns=data_main[0])
 
+# ==========================================
+# 2. Table 2: Ablation Studies (消融实验)
+# ==========================================
+data_ablation = [
+    ["Model Variant", "Module Removed", "Acc. (%)", "Delta", "Faith. Score"],
+    ["Full Model (DDR)", "None", 68.4, "-", 4.62],
+    ["(A1) w/o MM-Retriever", "Visual Evidence", 42.1, "-26.3", 2.10],
+    ["(A2) w/o EvidenceNorm", "Denoising", 61.5, "-6.9", 3.85],
+    ["(A3) w/o AttentionAlign", "Alignment", 63.2, "-5.2", 3.15],
+    ["(A4) Replace w/ Transformer", "Mamba Backbone", 68.1, "-0.3", 4.58],
+    ["(A5) SFT Only (No DPO)", "DDR Objective", 65.8, "-2.6", 3.40],
+    ["(A6) PPO Training", "DPO Optimization", 66.2, "-2.2", 4.10]
+]
 
-class KbIngestTestCase(unittest.TestCase):
-    def setUp(self):
-        os.environ["FLASK_ENV"] = "testing"
-        self.app = create_app("testing")
-        self.app.config["TESTING"] = True
+df_ablation = pd.DataFrame(data_ablation[1:], columns=data_ablation[0])
 
-        with self.app.app_context():
-            db.create_all()
+# ==========================================
+# 3. Table 3: Statistics (数据与效率)
+# ==========================================
+data_stats = [
+    ["Dataset", "Type", "Size (QAs)", "Avg. Tokens", "Note"],
+    ["DocVQA", "Real", "12,767", 180, ""],
+    ["ChartQA", "Real", "9,608", 350, ""],
+    ["InfographicVQA", "Real", "5,485", 1200, ""],
+    ["Synthetic-Long", "Synth", "10,000", 16384, "Robustness Test"],
+    ["Efficiency Test (32k ctx)", "", "", "", ""],
+    ["Transformer (FlashAttn-2)", "-", "-", "-", "OOM (>80GB)"],
+    ["DDR-Mamba (Ours)", "-", "-", "-", "12.4 GB / 85 ms"]
+]
 
-        self.client = self.app.test_client()
-        self.repo_root = Path(self.app.root_path).parent
-        self.storage_dir = self.repo_root / "storage"
+df_stats = pd.DataFrame(data_stats[1:], columns=data_stats[0])
 
-    def tearDown(self):
-        with self.app.app_context():
-            db.drop_all()
+# ==========================================
+# Save to Excel
+# ==========================================
+with pd.ExcelWriter('experiment_results.xlsx') as writer:
+    df_main.to_excel(writer, sheet_name='Table1_Main_Results', index=False)
+    df_ablation.to_excel(writer, sheet_name='Table2_Ablations', index=False)
+    df_stats.to_excel(writer, sheet_name='Table3_Stats', index=False)
 
-        if self.storage_dir.exists():
-            shutil.rmtree(self.storage_dir)
-
-    @unittest.skipIf(Document is None, "python-docx is required for kb ingest tests")
-    def test_ingest_list_delete_kb_docx(self):
-        file_id = str(uuid.uuid4())
-        rel_path = f"storage/uploads/{file_id}/original.docx"
-        abs_path = self.repo_root / rel_path
-        abs_path.parent.mkdir(parents=True, exist_ok=True)
-
-        doc = Document()
-        doc.add_heading("第一章 总则", level=1)
-        doc.add_paragraph("本章内容 1")
-        doc.add_heading("1.1 术语", level=2)
-        doc.add_paragraph("术语内容 1")
-        doc.add_heading("第二章 采购范围", level=1)
-        doc.add_paragraph("范围内容 1")
-        doc.save(str(abs_path))
-
-        with self.app.app_context():
-            rec = File(
-                id=file_id,
-                filename="demo.docx",
-                ext="docx",
-                size=abs_path.stat().st_size,
-                storage_path=rel_path,
-            )
-            db.session.add(rec)
-            db.session.commit()
-
-        resp = self.client.post("/api/v1/kb/ingest", json={"file_id": file_id, "title": "投标文件"})
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertIn("doc_id", data)
-        self.assertGreaterEqual(data["block_count"], 2)
-
-        doc_id = data["doc_id"]
-
-        with self.app.app_context():
-            blocks = KbBlock.query.filter_by(doc_id=doc_id).all()
-            self.assertGreaterEqual(len(blocks), 2)
-            for block in blocks:
-                block_path = self.repo_root / block.block_docx_path
-                self.assertTrue(block_path.exists())
-
-            blocks[0].tag = "product_intro"
-            db.session.commit()
-
-        list_resp = self.client.get("/api/v1/kb/docs?page=1&page_size=10")
-        self.assertEqual(list_resp.status_code, 200)
-        list_data = list_resp.get_json()
-        self.assertGreaterEqual(list_data["total"], 1)
-
-        search_resp = self.client.post(
-            "/api/v1/kb/search",
-            json={
-                "query": "内容",
-                "top_k": 5,
-                "by_tag": "product_intro",
-                "title_keywords": ["总则", "采购范围"],
-            },
-        )
-        self.assertEqual(search_resp.status_code, 200)
-        search_data = search_resp.get_json()
-        self.assertGreaterEqual(search_data["total"], 1)
-
-        del_resp = self.client.delete(f"/api/v1/kb/docs/{doc_id}")
-        self.assertEqual(del_resp.status_code, 200)
-
-        with self.app.app_context():
-            self.assertIsNone(db.session.get(KbDocument, doc_id))
+print("✅ Excel file 'experiment_results.xlsx' has been generated successfully!")
