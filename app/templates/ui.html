@@ -104,6 +104,7 @@
       transition: all 0.2s;
     }
     button.secondary { background: white; color: var(--accent); }
+    button.primary { background: var(--accent); color: white; }
     button:disabled { opacity: .5; cursor: not-allowed; }
     .muted { color: var(--muted); font-size: 13px; }
     .hr { height: 1px; background: var(--line); margin: 6px 0; }
@@ -155,7 +156,7 @@
     <header class="page-header">
       <div>
         <h1>flask-gpt-stack · 操作控制台</h1>
-        <p>统一入口：证书索引、知识库检索、评审索引生成与任务闭环。</p>
+        <p>统一入口：证书索引、知识库检索、标书响应生成与文档查重。</p>
       </div>
       <div class="small">MVP 控制台</div>
     </header>
@@ -208,8 +209,13 @@
       </div>
       <div style="overflow:auto;">
         <table>
-          <thead><tr><th>证书文件 (File)</th></tr></thead>
-          <tbody id="searchTbody"><tr><td class="muted">请先搜索</td></tr></tbody>
+          <thead>
+            <tr>
+              <th>证书文件 (File)</th>
+              <th class="nowrap" style="width: 120px;">到期日期</th>
+            </tr>
+          </thead>
+          <tbody id="searchTbody"><tr><td colspan="2" class="muted">请先搜索</td></tr></tbody>
         </table>
       </div>
       <div>
@@ -350,25 +356,28 @@
 
     <div class="card">
       <div class="section-title">
-        <div><h1>第四步：一键生成评审办法索引</h1></div>
-        <div class="kv">requirements：<code id="riReqCount">0</code></div>
+        <div>
+          <h1>第四步：一键生成完整投标文件 (.docx)</h1>
+          <div class="muted">自动提取招标要求，并结合知识库拼装公司简介、技术方案与点对点响应表。</div>
+        </div>
+        <div class="kv">解析需求项：<code id="riReqCount">0</code></div>
       </div>
       <div class="form-grid">
         <div class="field">
-          <label>job_id</label>
-          <input id="riJobId" type="text" placeholder="例如：xxxx-xxxx-xxxx" />
+          <label>解析任务 ID (job_id)</label>
+          <input id="riJobId" type="text" placeholder="从第三步获取" />
         </div>
         <div class="field">
-          <label>KB tag</label>
+          <label>知识库检索范围 (KB Tag)</label>
           <input id="riKbTag" type="text" value="tender" />
         </div>
         <div class="field">
-          <label>每个评分大类证据条数</label>
-          <input id="riTopN" type="number" value="3" min="1" max="10" />
+          <label>单条响应最大召回段落数</label>
+          <input id="riTopN" type="number" value="2" min="1" max="10" />
         </div>
         <div class="field">
-          <label>模板路径</label>
-          <input id="riTemplatePath" type="text" value="storage/kb/templates/评分大类.docx" />
+          <label>投标文件母版路径</label>
+          <input id="riTemplatePath" type="text" value="storage/kb/templates/投标文件模板.docx" />
         </div>
         <div class="field">
           <label>预览条数 limit</label>
@@ -377,17 +386,17 @@
         <div class="field">
           <label>操作</label>
           <div class="row">
-            <button id="btnRiLoad" type="button">预览要求表</button>
-            <button id="btnRiGenerate" type="button" class="secondary">一键生成（docx）</button>
+            <button id="btnRiLoad" type="button">1. 预览招标要求</button>
+            <button id="btnRiGenerate" type="button" class="primary" style="background:var(--success); border-color:var(--success);">2. 一键生成全套标书</button>
           </div>
         </div>
       </div>
       <div>
-        <h2>招标文件要求表预览</h2>
+        <h2>招标要求提取预览</h2>
         <div style="overflow:auto;">
           <table>
-            <thead><tr><th class="nowrap">category</th><th class="nowrap">item</th><th>value</th><th>source</th></tr></thead>
-            <tbody id="riReqTbody"><tr><td colspan="4" class="muted">请先预览</td></tr></tbody>
+            <thead><tr><th class="nowrap">类别</th><th class="nowrap">指标项</th><th>详细要求</th><th>来源页码</th></tr></thead>
+            <tbody id="riReqTbody"><tr><td colspan="4" class="muted">请先点击预览</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -400,8 +409,8 @@
     <div class="card">
       <div class="section-title">
         <div>
-          <h1>第五步：文档相似度比对 (Similarity Check)</h1>
-          <div class="muted">分别上传源文件与目标文件，进行语义查重。</div>
+          <h1>第五步：文档相似度比对 (语义查重)</h1>
+          <div class="muted">分别上传源文件与目标文件，进行智能语义查重并高亮显示。</div>
         </div>
         <div class="kv">job_id：<code id="simJobId">-</code></div>
       </div>
@@ -427,7 +436,7 @@
 
         <div class="field">
           <label>操作</label>
-          <button id="btnSimStart" type="button" disabled>开始比对</button>
+          <button id="btnSimStart" type="button" disabled>开始智能比对</button>
         </div>
       </div>
 
@@ -445,6 +454,29 @@
         <a id="btnSimDownloadReport" class="btnlink primary" href="#" style="display:none;">下载查重报告 (JSON)</a>
       </div>
 
+      <div id="simResultContainer" style="display: none; margin-top: 15px; border-top: 1px dashed var(--line); padding-top: 15px;">
+        <div class="section-title">
+          <h2>可视化比对结果</h2>
+        </div>
+        <div class="row" style="margin-bottom: 15px; background: #f8fafc; padding: 12px; border-radius: 8px;">
+          <div class="kv">源文件重复率：<code id="simOverallScore" style="font-size: 16px; font-weight: bold;">0%</code></div>
+          <div class="kv" style="margin-left: 20px;">发现相似片段：<code id="simDupCount">0</code> 个</div>
+        </div>
+
+        <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px;">
+          <table style="width: 100%; table-layout: fixed; margin: 0; border: none;">
+            <thead style="position: sticky; top: 0; z-index: 10; background: #f8fafc; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+              <tr>
+                <th style="width: 45%; border-top: none; border-left: none;">源文件片段 (Source)</th>
+                <th style="width: 10%; text-align: center; border-top: none;">相似度</th>
+                <th style="width: 45%; border-top: none; border-right: none;">目标文件片段 (Target)</th>
+              </tr>
+            </thead>
+            <tbody id="simResultTbody">
+              </tbody>
+          </table>
+        </div>
+      </div>
       <div>
         <div class="muted">比对日志</div>
         <pre id="simLog"></pre>
@@ -486,7 +518,9 @@
   const searchPage = el("searchPage"); const searchReqUrl = el("searchReqUrl");
   const searchTbody = el("searchTbody"); const searchLog = el("searchLog");
   let searchState = { page: 1, total: 0 };
+
   function slog(msg) { searchLog.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`; searchLog.scrollTop = searchLog.scrollHeight; }
+
   function buildSearchUrl(page) {
     const params = new URLSearchParams();
     if(searchQ.value.trim()) params.set("q", searchQ.value.trim());
@@ -495,14 +529,33 @@
     params.set("page", page);
     return "/api/v1/index/search?" + params.toString();
   }
+
   function renderIndexItems(items) {
-    if (!items || !items.length) { searchTbody.innerHTML = `<tr><td class="muted">无结果</td></tr>`; return; }
+    if (!items || !items.length) { searchTbody.innerHTML = `<tr><td colspan="2" class="muted">无结果</td></tr>`; return; }
+
     searchTbody.innerHTML = items.map(it => {
       const f = it.file || {};
       const fid = f.file_id || "";
-      return `<tr><td><div class="file-card"><div class="file-meta"><div><b>${escapeHtml(f.original_name||"Untitled")}</b></div><div class="small">${escapeHtml(f.mime_type)} · ${f.size_bytes||0}</div></div><div>${fid?`<a href="/api/v1/files/${encodeURIComponent(fid)}/download" target="_blank" class="btnlink secondary btn-mini">下载</a>`:`<span class="muted small">无文件</span>`}</div></div></td></tr>`;
+
+      // 提取并格式化到期日期，如果没有则显示 "-"
+      const expiresAtStr = it.expires_at ? it.expires_at.split('T')[0] : '<span class="muted">-</span>';
+
+      return `<tr>
+        <td>
+          <div class="file-card">
+            <div class="file-meta">
+              <div><b>${escapeHtml(f.original_name||"Untitled")}</b></div>
+              <div class="small">${escapeHtml(f.mime_type)} · ${f.size_bytes||0}</div>
+              <div class="small muted">所有人: ${escapeHtml(it.owner_name||"-")} | 证书号: ${escapeHtml(it.cert_no||"-")}</div>
+            </div>
+            <div>${fid?`<a href="/api/v1/files/${encodeURIComponent(fid)}/download" target="_blank" class="btnlink secondary btn-mini">下载</a>`:`<span class="muted small">无文件</span>`}</div>
+          </div>
+        </td>
+        <td class="nowrap" style="vertical-align: middle;">${expiresAtStr}</td>
+      </tr>`;
     }).join("");
   }
+
   async function doIndexSearch(page) {
     const url = buildSearchUrl(page);
     searchReqUrl.textContent = "GET " + url; slog("search: " + url);
@@ -516,13 +569,19 @@
       renderIndexItems(data.items);
       btnPrev.disabled = searchState.page <= 1;
       btnNext.disabled = searchState.page * searchPageSize.value >= searchState.total;
-    } catch(e) { slog("error: "+e.message); searchTbody.innerHTML=`<tr><td class="muted">失败: ${escapeHtml(e.message)}</td></tr>`; }
+    } catch(e) { slog("error: "+e.message); searchTbody.innerHTML=`<tr><td colspan="2" class="muted">失败: ${escapeHtml(e.message)}</td></tr>`; }
     finally { btnSearch.disabled = false; }
   }
+
   btnSearch.addEventListener("click", ()=>doIndexSearch(1));
   btnPrev.addEventListener("click", ()=>doIndexSearch(Math.max(1, searchState.page-1)));
   btnNext.addEventListener("click", ()=>doIndexSearch(searchState.page+1));
-  btnSearchReset.addEventListener("click", ()=>{ searchQ.value=""; searchScope.value=""; searchPageSize.value="20"; searchState.page=1; searchState.total=0; searchPage.textContent="1"; searchTotal.textContent="0"; searchTbody.innerHTML=`<tr><td class="muted">请先搜索</td></tr>`; });
+  btnSearchReset.addEventListener("click", ()=>{
+    searchQ.value=""; searchScope.value=""; searchPageSize.value="20";
+    searchState.page=1; searchState.total=0;
+    searchPage.textContent="1"; searchTotal.textContent="0";
+    searchTbody.innerHTML=`<tr><td colspan="2" class="muted">请先搜索</td></tr>`;
+  });
 
   // =======================
   // 2) KB Search
@@ -650,7 +709,7 @@
   btnReset.addEventListener("click", ()=>location.reload());
 
   // =======================
-  // 4) Review Index
+  // 4) Review Index (改版为：投标文件生成)
   // =======================
   const riJobId=el("riJobId"); const riKbTag=el("riKbTag"); const riTopN=el("riTopN");
   const riTemplatePath=el("riTemplatePath"); const riLimit=el("riLimit");
@@ -678,13 +737,13 @@
       const payload={ job_id:jid, kb_tag:riKbTag.value.trim()||null, evidence_top_n:parseInt(riTopN.value), template_docx_path:riTemplatePath.value.trim()||null };
       const resp = await fetch("/api/v1/review-index/generate", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
       if(!resp.ok) throw new Error((await resp.json()).message);
-      downloadBlobAs(await resp.blob(), "评审索引.docx");
-      rilog("generated");
+      downloadBlobAs(await resp.blob(), "投标响应文件.docx");
+      rilog("generated 成功生成标书");
     } catch(e) { rilog("error: "+e.message); } finally { btnRiGenerate.disabled=false; }
   });
 
   // =======================
-  // 5) Similarity Check (Enhanced)
+  // 5) Similarity Check (Enhanced Visual UI)
   // =======================
   const simFileSource = el("simFileSource"); const simFileTarget = el("simFileTarget");
   const btnSimUploadSource = el("btnSimUploadSource"); const btnSimUploadTarget = el("btnSimUploadTarget");
@@ -735,7 +794,6 @@
             resolve(null);
           }
         } else {
-          // 尝试解析错误信息
           let errMsg = `HTTP ${xhr.status}`;
           try {
             const err = JSON.parse(xhr.responseText);
@@ -833,15 +891,66 @@
         clearInterval(simState.timer);
         btnSimStart.disabled = false;
         simlog(`Job finished: ${j.status}`);
+
         if (j.status === "SUCCEEDED") {
-          btnSimDownloadReport.href = `/api/v1/jobs/${simState.job_id}/artifact?type=json`;
+          const artifactUrl = `/api/v1/jobs/${simState.job_id}/artifact?type=json`;
+          btnSimDownloadReport.href = artifactUrl;
           btnSimDownloadReport.style.display = "inline-block";
+
+          // 自动请求 JSON 并渲染到页面可视化面板
+          simlog("Fetching result data for UI rendering...");
+          fetch(artifactUrl)
+            .then(res => res.json())
+            .then(data => renderSimResults(data))
+            .catch(err => simlog("Error rendering results: " + err));
+
         } else {
           simlog(`Error: ${j.error_message}`);
           alert("比对任务失败: " + j.error_message);
         }
       }
     }, 1000);
+  }
+
+  // 渲染可视化比对结果面板的函数
+  function renderSimResults(data) {
+    document.getElementById('simResultContainer').style.display = 'block';
+
+    // 1. 渲染总体相似度及颜色标注
+    const scoreVal = data.overall_similarity || 0;
+    const scorePercent = (scoreVal * 100).toFixed(2) + '%';
+    const scoreEl = document.getElementById('simOverallScore');
+    scoreEl.textContent = scorePercent;
+
+    if (scoreVal >= 0.5) {
+      scoreEl.style.color = 'var(--error)';
+    } else if (scoreVal >= 0.2) {
+      scoreEl.style.color = '#f59e0b'; // 橙黄色
+    } else {
+      scoreEl.style.color = 'var(--success)';
+    }
+
+    document.getElementById('simDupCount').textContent = data.duplicate_count || 0;
+
+    // 2. 渲染左右对比表格
+    const tbody = document.getElementById('simResultTbody');
+    if (!data.segments || data.segments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="muted" style="text-align:center; padding: 20px;">未发现相似片段，两份文档无重合。</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.segments.map(seg => {
+      const scoreClass = seg.score > 0.95 ? 'pill bad' : 'pill';
+      const scoreHtml = `<span class="${scoreClass}">${(seg.score * 100).toFixed(1)}%</span>`;
+
+      return `<tr>
+        <td style="word-wrap: break-word; white-space: pre-wrap; font-size: 13px; color: #333;">${escapeHtml(seg.doc_a_chunk.text)}</td>
+        <td style="text-align: center; vertical-align: middle;">${scoreHtml}</td>
+        <td style="word-wrap: break-word; white-space: pre-wrap; font-size: 13px; color: #333; background: #fafafa;">${escapeHtml(seg.doc_b_chunk.text)}</td>
+      </tr>`;
+    }).join('');
+
+    simlog("Visual result rendered successfully.");
   }
 
 })();
